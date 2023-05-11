@@ -40,6 +40,22 @@ void bench_user_id_index(std::vector<USER *> &users)
     stop = std::chrono::high_resolution_clock::now();
     duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
     std::cout << duration.count() << std::endl;
+
+    if (users.size() < 1000)
+    {
+        std::cout << "printing..." << std::endl;
+        USER_ID_INDEX.traverse();
+    }
+
+    std::cout << "clearing..." << std::endl;
+    start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < users.size(); ++i)
+    {
+        USER_ID_INDEX.remove(i);
+    }
+    stop = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+    std::cout << duration.count() << std::endl;
 }
 
 void bench_user_name_index(std::vector<USER *> &users)
@@ -72,6 +88,21 @@ void bench_user_name_index(std::vector<USER *> &users)
     stop = std::chrono::high_resolution_clock::now();
     duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
     std::cout << duration.count() << std::endl;
+    if (users.size() < 1000)
+    {
+        std::cout << "printing..." << std::endl;
+        USER_NAME_INDEX.traverse();
+    }
+
+    std::cout << "clearing..." << std::endl;
+    start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < users.size(); ++i)
+    {
+        USER_NAME_INDEX.remove(users[i]->name);
+    }
+    stop = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+    std::cout << duration.count() << std::endl;
 }
 
 int main()
@@ -82,5 +113,6 @@ int main()
         users.push_back(new USER(i, "user" + std::to_string(i)));
     }
     bench_user_id_index(users);
+
     // bench_user_name_index(users);
 }

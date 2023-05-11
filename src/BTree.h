@@ -165,6 +165,7 @@ void TreeNode<KEY, DATA>::remove(const KEY &k)
 
     if (idx < n && keys[idx] == k)
     {
+        delete data[idx];
         if (leaf)
             removeLeaf(idx);
         else
@@ -199,10 +200,6 @@ void TreeNode<KEY, DATA>::removeLeaf(int idx)
         keys[i - 1] = keys[i];
         data[i - 1] = data[i];
     }
-    // Free data
-    std::cout << "Freeing data: " << data[n - 1] << std::endl;
-    // delete data[n - 1];
-    // data[n - 1] = nullptr;
     n--;
 }
 
