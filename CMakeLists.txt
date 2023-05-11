@@ -3,6 +3,8 @@ project(MyDatabase VERSION 0.1.0)
 
 enable_testing()
 
+# DEBUG
+set(CMAKE_BUILD_TYPE Debug)
 add_executable(MyDatabase src/main.cpp)
 
 

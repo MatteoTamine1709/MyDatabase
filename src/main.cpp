@@ -1,44 +1,86 @@
 #include "BTree.h"
 #include <iostream>
+#include <vector>
+#include <chrono>
 
-struct K
+struct USER
 {
-    int value = 0;
-    bool operator>(const K &k) const { return value > k.value; }
-    bool operator<(const K &k) const { return value < k.value; }
-    bool operator==(const K &k) const { return value == k.value; }
-    // << operator
-    friend std::ostream &operator<<(std::ostream &os, const K &k)
-    {
-        os << "=> " << k.value;
-        return os;
-    }
-    K(int value) : value(value) {}
-    K() = default;
+    int id;
+    std::string name;
+    USER(int id, std::string name) : id(id), name(name) {}
 };
+
+void bench_user_id_index(std::vector<USER *> &users)
+{
+    BTree<decltype(USER::id), USER *> USER_ID_INDEX;
+    std::cout << "inserting..." << std::endl;
+    auto start = std::chrono::high_resolution_clock::now();
+    for (auto user : users)
+    {
+        USER_ID_INDEX.insert(user->id, user);
+    }
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+    std::cout << duration.count() << std::endl;
+
+    std::cout << "removing..." << std::endl;
+    start = std::chrono::high_resolution_clock::now();
+    for (int i = (users.size() / 2) - (users.size() / 4); i < users.size() / 2; ++i)
+        USER_ID_INDEX.remove(i);
+    stop = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+    std::cout << duration.count() << std::endl;
+
+    std::cout << "searching..." << std::endl;
+    start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < users.size(); ++i)
+    {
+        auto [key, data] = USER_ID_INDEX.search(i);
+    }
+    stop = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+    std::cout << duration.count() << std::endl;
+}
+
+void bench_user_name_index(std::vector<USER *> &users)
+{
+    BTree<decltype(USER::name), USER *> USER_NAME_INDEX;
+    std::cout << "inserting..." << std::endl;
+    auto start = std::chrono::high_resolution_clock::now();
+    for (auto user : users)
+    {
+        USER_NAME_INDEX.insert(user->name, user);
+    }
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+    std::cout << duration.count() << std::endl;
+
+    std::cout << "removing..." << std::endl;
+    start = std::chrono::high_resolution_clock::now();
+    for (int i = (users.size() / 2) - (users.size() / 4); i < users.size() / 2; ++i)
+        USER_NAME_INDEX.remove("user" + std::to_string(i));
+    stop = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+    std::cout << duration.count() << std::endl;
+
+    std::cout << "searching..." << std::endl;
+    start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < users.size(); ++i)
+    {
+        auto [key, data] = USER_NAME_INDEX.search("user" + std::to_string(i));
+    }
+    stop = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+    std::cout << duration.count() << std::endl;
+}
 
 int main()
 {
-    BTree<K, const char *> t;
-    t.insert(K(9), "World");
-    t.insert(8, "Hello");
-    t.insert(10, "!");
-    t.insert(11, "This");
-    t.insert(15, "is");
-    t.insert(16, "a");
-    t.insert(17, "B-tree");
-    t.insert(18, "implementation");
-    t.insert(20, "in");
-    t.insert(23, "C++");
-
-    std::cout << "The B-tree is: ";
-    t.traverse();
-
-    int k = 10;
-    (t.search(k) != nullptr) ? std::cout << std::endl
-                                         << k << " is found" << std::endl
-                             : std::cout << std::endl
-                                         << k << " is not Found" << std::endl;
-
-    std::cout << t.search(8)->data << std::endl;
+    std::vector<USER *> users;
+    for (int i = 0; i < 100; i++)
+    {
+        users.push_back(new USER(i, "user" + std::to_string(i)));
+    }
+    bench_user_id_index(users);
+    // bench_user_name_index(users);
 }
