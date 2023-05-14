@@ -5,7 +5,7 @@
 std::vector<uint64_t> type_min_size = {
     4,  // INTEGER
     4,  // FLOAT
-    0,  // DECIMAL
+    8,  // DECIMAL
     0,  // CHAR
     0,  // VARCHAR
     0,  // TEXT
@@ -21,7 +21,7 @@ std::vector<uint64_t> type_min_size = {
 std::vector<uint64_t> type_max_size = {
     4,                               // INTEGER
     4,                               // FLOAT
-    UINT_MAX,                        // DECIMAL
+    8,                               // DECIMAL
     UINT_MAX,                        // CHAR
     UINT_MAX,                        // VARCHAR
     UINT_MAX,                        // TEXT

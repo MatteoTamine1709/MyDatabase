@@ -17,27 +17,60 @@ struct Row {
     std::shared_ptr<void> data;
     std::vector<char> is_set;
     std::vector<uint64_t> sizes;
+    uint64_t headerSize = 0;
     uint64_t rowSize = 0;
     uint64_t totalSize = 0;
     Row(void *data, std::vector<uint64_t> sizes, std::vector<char> is_set) {
         this->sizes = sizes;
         this->data = std::shared_ptr<void>(data, free);
         this->is_set = is_set;
-        for (int i = 0; i < sizes.size(); ++i) rowSize += sizes[i];
-        totalSize = rowSize + sizes.size() * sizeof(uint64_t) + is_set.size();
     }
 
     ~Row() {}
 
-    void *blob() const {
+    size_t computeHeaderSize(const std::vector<int> &requestedIndexes) {
+        headerSize = 0;
+        // column size
+        headerSize += requestedIndexes.size() * sizeof(uint64_t);
+        // column type
+        headerSize += requestedIndexes.size() * sizeof(char);
+        return headerSize;
+    }
+    size_t computeTotalSize(const std::vector<int> &requestedIndexes) {
+        totalSize = 0;
+        totalSize += computeHeaderSize(requestedIndexes);
+        for (int i = 0; i < requestedIndexes.size(); ++i)
+            totalSize += this->sizes[requestedIndexes[i]];
+        return totalSize;
+    }
+
+    void *blob(const std::vector<int> &requestedIndexes) {
+        computeHeaderSize(requestedIndexes);
+        computeTotalSize(requestedIndexes);
         void *blob = malloc(totalSize);
         uint64_t offset = 0;
-        memcpy((char *)blob, this->sizes.data(),
-               this->sizes.size() * sizeof(uint64_t));
-        offset += this->sizes.size() * sizeof(uint64_t);
-        memcpy((char *)blob + offset, this->is_set.data(), this->is_set.size());
-        offset += this->is_set.size();
-        memcpy((char *)blob + offset, this->data.get(), rowSize);
+        size_t column_count = requestedIndexes.size();
+        for (int i = 0; i < requestedIndexes.size(); ++i) {
+            memcpy((char *)blob + offset, &this->sizes[requestedIndexes[i]],
+                   sizeof(uint64_t));
+            offset += sizeof(uint64_t);
+        }
+        for (int i = 0; i < requestedIndexes.size(); ++i) {
+            memcpy((char *)blob + offset, &this->is_set[requestedIndexes[i]],
+                   sizeof(char));
+            offset += sizeof(char);
+        }
+        for (int i = 0; i < requestedIndexes.size(); ++i) {
+            if (is_set[requestedIndexes[i]]) {
+                size_t offsetInData = 0;
+                for (int j = 0; j < requestedIndexes[i]; ++j)
+                    offsetInData += this->sizes[j];
+                memcpy((char *)blob + offset,
+                       (char *)this->data.get() + offsetInData,
+                       this->sizes[requestedIndexes[i]]);
+                offset += this->sizes[requestedIndexes[i]];
+            }
+        }
         return blob;
     }
 };
@@ -51,8 +84,9 @@ class Table {
 
     std::string insert(std::vector<std::string> column_order,
                        std::vector<std::string> &values);
-    std::pair<std::string, void *> select(std::vector<std::string> columns,
-                                          std::vector<Condition> conditions);
+    std::pair<std::string, void *> select(
+        std::vector<std::string> requestedColumns,
+        std::vector<Condition> conditions);
     std::string update(std::string column, std::string value,
                        std::vector<Condition> conditions);
     std::string delete_(std::vector<Condition> conditions);
@@ -101,7 +135,7 @@ class Table {
     std::unordered_map<Index, BTree<void *, Row> *, Index::hashFn> indexes;
     std::vector<bool> is_unique;
     std::vector<bool> is_not_null;
-    std::vector<std::string> default_value;
+    std::vector<std::string> default_value = {"NULL"};
     std::string primary_key_column;
 
     size_t getColumnIndex(std::string column_name);

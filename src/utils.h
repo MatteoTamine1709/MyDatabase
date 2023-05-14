@@ -22,6 +22,9 @@ bool isCorrectTime(std::string &value);
 bool isCorrectTimestamp(std::string &value);
 
 uint64_t getTypeSize(std::string &value, Type type);
+
+std::string getValue(char type, void *value, uint64_t size);
+void displaySelection(void *blob);
 }  // namespace utils
 
 #endif

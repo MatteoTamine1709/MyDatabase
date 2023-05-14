@@ -1,8 +1,12 @@
 #include "utils.h"
 
+#include <iomanip>
+#include <iostream>
+
 #include "string.h"
 namespace utils {
 void *parseType(std::string &value, Type type, uint64_t size) {
+    if (value == "NULL") return nullptr;
     switch (type) {
         case Type::INTEGER: {
             void *integer = malloc(type_min_size[Type::INTEGER]);
@@ -35,8 +39,12 @@ void *parseType(std::string &value, Type type, uint64_t size) {
             return parseTime(value);
         case Type::TIMESTAMP:
             return parseTimestamp(value);
-        case Type::BOOLEAN:
-            return new bool(std::stoi(value));
+        case Type::BOOLEAN: {
+            void *boolean = malloc(type_min_size[Type::BOOLEAN]);
+            bool b = value == "true" ? true : false;
+            memcpy(boolean, &b, type_min_size[Type::BOOLEAN]);
+            return boolean;
+        }
         case Type::BIT:
             return parseBit(value, size);
         case Type::BLOB:
@@ -47,18 +55,21 @@ void *parseType(std::string &value, Type type, uint64_t size) {
 }
 
 void *parseDate(std::string &value) {
+    if (value.size() != 10 || value[4] != '-' || value[7] != '-')
+        return nullptr;
     void *date = malloc(type_min_size[Type::DATE]);
     std::string year = value.substr(0, 4);
     std::string month = value.substr(5, 2);
     std::string day = value.substr(8, 2);
     // Count day since 1900-01-01
-    int days = (std::stoul(year) - 1900) * 365 + (std::stoul(month) - 1) * 30 +
-               std::stoul(day);
+    int days = (std::stoi(year) - 1900) * 365 + (std::stoi(month) - 1) * 30 +
+               std::stoi(day);
     memcpy(date, &days, 3);
     return date;
 }
 
 void *parseTime(std::string &value) {
+    if (value.size() != 8 || value[2] != ':' || value[5] != ':') return nullptr;
     void *time = malloc(type_min_size[Type::TIME]);
     std::string hour = value.substr(0, 2);
     std::string minute = value.substr(3, 2);
@@ -71,6 +82,9 @@ void *parseTime(std::string &value) {
 }
 
 void *parseTimestamp(std::string &value) {
+    if (value.size() != 19 || value[4] != '-' || value[7] != '-' ||
+        value[10] != ' ' || value[13] != ':' || value[16] != ':')
+        return nullptr;
     void *timestamp = malloc(type_min_size[Type::TIMESTAMP]);
     std::string year = value.substr(0, 4);
     std::string month = value.substr(5, 2);
@@ -137,12 +151,7 @@ bool isCorrectType(std::string &value, Type type) {
         case Type::TIMESTAMP:
             return isCorrectTimestamp(value);
         case Type::BOOLEAN:
-            try {
-                std::stoi(value);
-            } catch (const std::exception &e) {
-                return false;
-            }
-            return true;
+            return value == "true" || value == "false";
         case Type::BIT:
             return value.size() <= type_max_size[Type::BIT];
         case Type::BLOB:
@@ -217,6 +226,7 @@ bool isCorrectTimestamp(std::string &value) {
 }
 
 uint64_t getTypeSize(std::string &value, Type type) {
+    if (value == "NULL") return 0;
     switch (type) {
         case Type::INTEGER:
             return type_min_size[Type::INTEGER];
@@ -248,5 +258,159 @@ uint64_t getTypeSize(std::string &value, Type type) {
             return 0;
     }
     return 0;
+}
+
+std::string getValue(char type, void *value, uint64_t size) {
+    if (value == nullptr || size == 0) return "NULL";
+    switch (type) {
+        case Type::INTEGER:
+            return std::to_string(*(int *)value);
+        case Type::FLOAT:
+            return std::to_string(*(float *)value);
+        case Type::DECIMAL:
+            return std::to_string(*(double *)value);
+        case Type::CHAR:
+        case Type::VARCHAR:
+        case Type::TEXT:
+        case Type::BLOB:
+        case Type::VARBINARY:
+            return std::string((char *)value, size);
+        case Type::DATE: {
+            uint32_t days = 0;
+            // Read 3bytes
+            memcpy(&days, value, 3);
+            uint64_t year = days / 365 + 1900;
+            uint64_t month = (days % 365) / 30 + 1;
+            uint64_t day = (days % 365) % 30;
+            return std::to_string(year) + "-" + std::to_string(month) + "-" +
+                   std::to_string(day);
+        }
+        case Type::TIME: {
+            uint64_t seconds = 0;
+            // Read 5bytes
+            memcpy(&seconds, value, 5);
+            uint64_t hour = seconds / 3600;
+            uint64_t minute = (seconds % 3600) / 60;
+            uint64_t second = (seconds % 3600) % 60;
+            return std::to_string(hour) + ":" + std::to_string(minute) + ":" +
+                   std::to_string(second);
+        }
+        case Type::TIMESTAMP: {
+            uint64_t seconds = 0;
+            // Read 8bytes
+            memcpy(&seconds, value, 8);
+            uint64_t year = seconds / (365 * 24 * 3600) + 1900;
+            uint64_t month =
+                (seconds % (365 * 24 * 3600)) / (30 * 24 * 3600) + 1;
+            uint64_t day = ((seconds % (365 * 24 * 3600)) % (30 * 24 * 3600)) /
+                           (24 * 3600);
+            uint64_t hour =
+                (((seconds % (365 * 24 * 3600)) % (30 * 24 * 3600)) %
+                 (24 * 3600)) /
+                3600;
+            uint64_t minute =
+                ((((seconds % (365 * 24 * 3600)) % (30 * 24 * 3600)) %
+                  (24 * 3600)) %
+                 3600) /
+                60;
+            uint64_t second =
+                (((((seconds % (365 * 24 * 3600)) % (30 * 24 * 3600)) %
+                   (24 * 3600)) %
+                  3600) %
+                 60) %
+                60;
+            return std::to_string(year) + "-" + std::to_string(month) + "-" +
+                   std::to_string(day) + " " + std::to_string(hour) + ":" +
+                   std::to_string(minute) + ":" + std::to_string(second);
+        }
+        case Type::BOOLEAN:
+            return (*(bool *)value) == true ? "True" : "False";
+        case Type::BIT: {
+            std::string bit = "";
+            for (int i = 0; i < size; ++i) {
+                for (int j = 0; j < 8; ++j) {
+                    bit += (((char *)value)[i] & (1 << j)) ? "1" : "0";
+                }
+            }
+            return bit;
+        }
+        default:
+            return "NULL";
+    }
+}
+
+void displaySelection(void *blob) {
+    size_t numberOfRows = *(size_t *)blob;
+    blob = (char *)blob + sizeof(size_t);
+    size_t numberOfColumns = *(size_t *)blob;
+    blob = (char *)blob + sizeof(size_t);
+    std::cout << "Number of rows: " << numberOfRows << std::endl;
+    std::cout << "Number of columns: " << numberOfColumns << std::endl;
+    std::vector<std::string> columnNames;
+    for (int i = 0; i < numberOfColumns; ++i) {
+        columnNames.push_back(std::string((char *)blob));
+        blob = (char *)blob + columnNames.back().size() + 1;
+    }
+    std::vector<char> types;
+    for (int i = 0; i < numberOfColumns; ++i) {
+        types.push_back(*(char *)blob);
+        blob = (char *)blob + sizeof(char);
+    }
+
+    size_t offset = 0;
+    std::vector<uint64_t> maxWidths(numberOfColumns);
+    for (int i = 0; i < numberOfColumns; ++i)
+        maxWidths[i] = columnNames[i].size();
+    std::vector<std::vector<std::string>> values;
+    for (int i = 0; i < numberOfRows; ++i) {
+        std::vector<uint64_t> sizes;
+
+        for (int j = 0; j < numberOfColumns; ++j) {
+            sizes.push_back(*(uint64_t *)((char *)blob + offset));
+            offset += sizeof(uint64_t);
+        }
+        std::vector<char> is_set;
+        for (int j = 0; j < numberOfColumns; ++j) {
+            is_set.push_back(*(char *)((char *)blob + offset));
+            offset += sizeof(char);
+        }
+        values.push_back(std::vector<std::string>());
+        for (int j = 0; j < numberOfColumns; ++j) {
+            if (is_set[j] == 0) {
+                values[i].push_back("NULL");
+                maxWidths[j] = std::max(maxWidths[j], (uint64_t)4);
+                offset += sizes[j];
+                continue;
+            }
+            values[i].push_back(
+                getValue(types[j], (char *)blob + offset, sizes[j]));
+            maxWidths[j] = std::max(maxWidths[j], values[i][j].size());
+            offset += sizes[j];
+        }
+    }
+
+    // Table display
+    std::cout << "Table display:\n";
+    for (int i = 0; i < numberOfColumns; ++i)
+        std::cout << std::setfill('-') << std::setw(maxWidths[i] + 4) << "-";
+    std::cout << "\n" << std::setfill(' ');
+    for (int i = 0; i < numberOfColumns; ++i) {
+        std::cout << "| " << std::left << std::setw(maxWidths[i])
+                  << columnNames[i] << " |";
+    }
+    std::cout << std::endl;
+    for (int i = 0; i < numberOfColumns; ++i)
+        std::cout << std::setfill('-') << std::setw(maxWidths[i] + 4) << "-";
+    std::cout << "\n" << std::setfill(' ');
+    for (int i = 0; i < numberOfRows; ++i) {
+        for (int j = 0; j < numberOfColumns; ++j) {
+            std::cout << "| " << std::left << std::setw(maxWidths[j])
+                      << values[i][j] << " |";
+        }
+        std::cout << std::endl;
+    }
+    for (int i = 0; i < numberOfColumns; ++i)
+        std::cout << std::setfill('-') << std::setw(maxWidths[i] + 4) << "-";
+    std::cout << "\n" << std::setfill(' ');
 }
 }  // namespace utils

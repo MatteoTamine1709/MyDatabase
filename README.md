@@ -12,3 +12,58 @@ It will be able to be used as a library in other projects as well as a standalon
 In the library, the tables will be known at compilation time and the user will be able to create, delete, insert, update and select data from the tables to gain extra performance.
 
 In the standalone application, the tables will be known at runtime and the user will be able to create, delete, insert, update and select data from the tables. This will be slower than the library version because it will have to parse the table schema at runtime.
+
+## Functionality
+
+- [ ] Save data to disk
+- [ ] Load data from disk
+- [ ] Save indexes to disk
+- [ ] Load indexes from disk
+- [x] Create table
+- [x] Delete table
+- [x] Insert data
+- [ ] Update data
+- [x] Select data withut filters
+- [ ] Select data with filters
+- [ ] Select data with filters and order by
+- [ ] Select data with filters and order by and limit
+- [x] Primary key
+- [ ] Foreign key
+- [x] Default values
+- [x] Not null
+- [x] Unique
+- [ ] Auto increment
+- [x] Indexes
+- [ ] Composite indexes
+- [ ] Transactions
+- [ ] Views
+- [ ] Stored procedures
+- [ ] Stored functions
+- [ ] Triggers
+- [ ] User management
+- [ ] Roles
+- [ ] Permissions
+- [ ] Replication?
+
+## Database
+
+- [ ] Config file
+- [ ] Logging
+- [ ] Documentation
+- [ ] SQL parser
+
+## Types
+
+- [x] Integer
+- [x] Float
+- [x] Decimal
+- [ ] Char (exist but not using the fixed size)
+- [ ] Varchar (exist but not using the max size)
+- [x] Text
+- [x] Date
+- [x] Time
+- [x] Datetime
+- [x] Boolean
+- [x] Bit
+- [ ] Blob
+- [x] Varbinary (exist but not using the max size)
