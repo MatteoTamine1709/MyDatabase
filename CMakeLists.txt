@@ -5,7 +5,7 @@ enable_testing()
 
 # DEBUG
 set(CMAKE_BUILD_TYPE Debug)
-add_executable(MyDatabase src/main.cpp)
+add_executable(MyDatabase src/main.cpp src/utils.cpp src/Database.cpp src/Table.cpp src/Type.cpp)
 
 
 find_package(Threads REQUIRED)
