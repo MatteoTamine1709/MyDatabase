@@ -5,7 +5,7 @@
 
 #include "string.h"
 namespace utils {
-void *parseType(std::string &value, Type type, uint64_t size) {
+void *parseType(std::string &value, Type type) {
     if (value == "NULL") return nullptr;
     switch (type) {
         case Type::INTEGER: {
@@ -46,10 +46,10 @@ void *parseType(std::string &value, Type type, uint64_t size) {
             return boolean;
         }
         case Type::BIT:
-            return parseBit(value, size);
+            return parseBit(value);
         case Type::BLOB:
         case Type::VARBINARY:
-            return parseBinary(value, size);
+            return parseBinary(value);
     }
     return nullptr;
 }
@@ -101,17 +101,20 @@ void *parseTimestamp(std::string &value) {
     return timestamp;
 }
 
-void *parseBit(std::string &value, uint64_t size) {
-    void *bit = malloc(size / 8 + 1);
-    memset(bit, 0, size / 8 + 1);
-    for (int i = 0; i < size; ++i)
+void *parseBit(std::string &value) {
+    if (value.size() % 8)
+        value = std::string(8 - value.size() % 8, '0') + value;
+    uint64_t size = value.size() / 8;
+    void *bit = malloc(size);
+    memset(bit, 0, size);
+    for (int i = 0; i < value.size(); ++i)
         if (value[i] == '1') ((char *)bit)[i / 8] |= (1 << (i % 8));
     return bit;
 }
 
-void *parseBinary(std::string &value, uint64_t size) {
-    void *binary = malloc(size);
-    memcpy(binary, value.data(), size);
+void *parseBinary(std::string &value) {
+    void *binary = malloc(value.size());
+    memcpy(binary, value.data(), value.size());
     return binary;
 }
 
@@ -249,7 +252,7 @@ uint64_t getTypeSize(std::string &value, Type type) {
         case Type::BOOLEAN:
             return type_min_size[Type::BOOLEAN];
         case Type::BIT:
-            return (value.size() / 8) + 1;
+            return ((value.size() - 1) / 8) + 1;
         case Type::BLOB:
             return value.size();
         case Type::VARBINARY:

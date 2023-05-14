@@ -55,6 +55,12 @@
     "ratio": "cpp",
     "bitset": "cpp",
     "iomanip": "cpp",
-    "sstream": "cpp"
+    "sstream": "cpp",
+    "condition_variable": "cpp",
+    "list": "cpp",
+    "mutex": "cpp",
+    "semaphore": "cpp",
+    "stop_token": "cpp",
+    "thread": "cpp"
   }
 }
