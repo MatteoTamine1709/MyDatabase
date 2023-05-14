@@ -18,7 +18,6 @@ class TreeNode {
     TreeNode(bool leaf, DATA &&data);
     TreeNode(bool leaf) : leaf(leaf){};
     ~TreeNode() {
-        std::cout << "TreeNode destructor" << std::endl;
         for (int i = 0; i <= n; ++i) delete C[i];
     }
 
@@ -61,7 +60,6 @@ class BTree {
    public:
     BTree() = default;
     ~BTree() {
-        std::cout << "BTree destructor" << std::endl;
         if (root != nullptr) delete root;
     }
 
@@ -234,12 +232,8 @@ template <typename KEY, typename DATA>
 void TreeNode<KEY, DATA>::removeNonLeaf(int idx) {
     KEY k = keys[idx];
 
-    std::cout << "N: " << C[idx]->n << std::endl;
-
     if (C[idx]->n >= BTREE_DEGREE) {
         auto pred = getPred(idx);
-        std::cout << "Pred: " << pred.first << ", " << pred.second.get()
-                  << std::endl;
         keys[idx] = pred.first;
         data[idx] = std::move(pred.second);
         C[idx]->remove(pred.first);

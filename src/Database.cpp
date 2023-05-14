@@ -4,7 +4,6 @@ Database::Database(std::string name)
     : name(name), tables(std::unordered_map<std::string, Table *>()) {}
 
 Database::~Database() {
-    std::cout << "Database destructor" << std::endl;
     for (auto table : tables) delete table.second;
 }
 
@@ -45,4 +44,12 @@ std::string Database::insert(std::string table_name,
     if (tables.find(table_name) == tables.end())
         return "Error: Table not found";
     return tables[table_name]->insert(column_order, values);
+}
+
+std::pair<std::string, void *> Database::select(
+    std::string table_name, std::vector<std::string> columns,
+    std::vector<Condition> conditions) {
+    if (tables.find(table_name) == tables.end())
+        return {"Error: Table not found", {}};
+    return tables[table_name]->select(columns, conditions);
 }

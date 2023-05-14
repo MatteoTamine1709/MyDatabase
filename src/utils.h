@@ -21,7 +21,7 @@ bool isCorrectDate(std::string &value);
 bool isCorrectTime(std::string &value);
 bool isCorrectTimestamp(std::string &value);
 
-__uint128_t getTypeSize(std::string &value, Type type);
+uint64_t getTypeSize(std::string &value, Type type);
 }  // namespace utils
 
 #endif

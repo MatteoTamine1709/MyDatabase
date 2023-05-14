@@ -1,23 +1,25 @@
 #include "utils.h"
 
 #include "string.h"
-
 namespace utils {
 void *parseType(std::string &value, Type type, uint64_t size) {
     switch (type) {
         case Type::INTEGER: {
             void *integer = malloc(type_min_size[Type::INTEGER]);
-            memcpy(integer, &value, type_min_size[Type::INTEGER]);
+            int i = std::stoi(value);
+            memcpy(integer, &i, type_min_size[Type::INTEGER]);
             return integer;
         }
         case Type::FLOAT: {
             void *float_ = malloc(type_min_size[Type::FLOAT]);
-            memcpy(float_, &value, type_min_size[Type::FLOAT]);
+            float f = std::stof(value);
+            memcpy(float_, &f, type_min_size[Type::FLOAT]);
             return float_;
         }
         case Type::DECIMAL: {
             void *decimal = malloc(type_min_size[Type::DECIMAL]);
-            memcpy(decimal, &value, type_min_size[Type::DECIMAL]);
+            double d = std::stod(value);
+            memcpy(decimal, &d, type_min_size[Type::DECIMAL]);
             return decimal;
         }
         case Type::CHAR:
@@ -214,7 +216,7 @@ bool isCorrectTimestamp(std::string &value) {
     return true;
 }
 
-__uint128_t getTypeSize(std::string &value, Type type) {
+uint64_t getTypeSize(std::string &value, Type type) {
     switch (type) {
         case Type::INTEGER:
             return type_min_size[Type::INTEGER];

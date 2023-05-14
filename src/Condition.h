@@ -10,8 +10,12 @@
 
 class Condition {
    public:
-    Condition(std::string column, std::string value, std::string op);
-    ~Condition();
+    Condition(std::string column, std::string value, std::string op) {
+        this->column = column;
+        this->value = value;
+        this->op = op;
+    }
+    ~Condition(){};
 
     bool check(std::unordered_map<std::string, Type> columns,
                std::vector<std::string> values);

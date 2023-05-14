@@ -26,8 +26,9 @@ class Database {
                        std::vector<std::string> column_order,
                        std::vector<std::string> values);
     std::string createView(std::string view_name, std::string select_statement);
-    std::string select(std::string table_name,
-                       std::vector<std::string> columns);
+    std::pair<std::string, void *> select(std::string table_name,
+                                          std::vector<std::string> columns,
+                                          std::vector<Condition> conditions);
     std::string update(std::string table_name, std::string column,
                        std::string value, std::string where_column,
                        std::string where_value);
