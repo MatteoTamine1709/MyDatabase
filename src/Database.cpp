@@ -4,6 +4,7 @@ Database::Database(std::string name)
     : name(name), tables(std::unordered_map<std::string, Table *>()) {}
 
 Database::~Database() {
+    std::cout << "Database destructor" << std::endl;
     for (auto table : tables) delete table.second;
 }
 
@@ -14,7 +15,9 @@ std::string Database::showTables() {
 }
 
 std::string Database::createTable(
-    std::string name, std::vector<std::pair<std::string, Type>> columns) {
+    std::string name, std::vector<std::pair<std::string, Type>> columns,
+    std::string primary_key_column, std::vector<bool> is_unique,
+    std::vector<bool> is_not_null, std::vector<std::string> default_value) {
     if (tables.find(name) != tables.end()) return "Error: Table already exists";
     std::vector<std::string> column_names;
     std::vector<Type> column_types;
@@ -22,7 +25,9 @@ std::string Database::createTable(
         column_names.push_back(columns[i].first);
         column_types.push_back(columns[i].second);
     }
-    Table *table = new Table(name, column_names, column_types);
+    Table *table =
+        new Table(name, column_names, column_types, primary_key_column,
+                  is_unique, is_not_null, default_value);
     tables[name] = table;
     return "Table created";
 }

@@ -44,6 +44,16 @@ struct Index {
         return str;
     }
 
+    std::string toString() const {
+        std::string str = table + "(";
+        for (int i = 0; i < columns_name.size(); i++) {
+            str += columns_name[i];
+            if (i != columns_name.size() - 1) str += ", ";
+        }
+        str += ")";
+        return str;
+    }
+
     std::string table;
     std::vector<std::string> columns_name;
 };

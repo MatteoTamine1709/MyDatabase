@@ -9,7 +9,7 @@
 #include "Type.h"
 
 namespace utils {
-void *parseType(std::string &value, Type type);
+void *parseType(std::string &value, Type type, uint64_t size = 0);
 void *parseDate(std::string &value);
 void *parseTime(std::string &value);
 void *parseTimestamp(std::string &value);

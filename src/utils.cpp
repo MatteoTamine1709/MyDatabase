@@ -5,16 +5,28 @@
 namespace utils {
 void *parseType(std::string &value, Type type, uint64_t size) {
     switch (type) {
-        case Type::INTEGER:
-            return new int(std::stoi(value));
-        case Type::FLOAT:
-            return new float(std::stof(value));
-        case Type::DECIMAL:
-            return new double(std::stod(value));
+        case Type::INTEGER: {
+            void *integer = malloc(type_min_size[Type::INTEGER]);
+            memcpy(integer, &value, type_min_size[Type::INTEGER]);
+            return integer;
+        }
+        case Type::FLOAT: {
+            void *float_ = malloc(type_min_size[Type::FLOAT]);
+            memcpy(float_, &value, type_min_size[Type::FLOAT]);
+            return float_;
+        }
+        case Type::DECIMAL: {
+            void *decimal = malloc(type_min_size[Type::DECIMAL]);
+            memcpy(decimal, &value, type_min_size[Type::DECIMAL]);
+            return decimal;
+        }
         case Type::CHAR:
         case Type::VARCHAR:
-        case Type::TEXT:
-            return value.data();
+        case Type::TEXT: {
+            void *string = malloc(value.size());
+            memcpy(string, value.data(), value.size());
+            return string;
+        }
         case Type::DATE:
             return parseDate(value);
         case Type::TIME:
@@ -29,6 +41,7 @@ void *parseType(std::string &value, Type type, uint64_t size) {
         case Type::VARBINARY:
             return parseBinary(value, size);
     }
+    return nullptr;
 }
 
 void *parseDate(std::string &value) {

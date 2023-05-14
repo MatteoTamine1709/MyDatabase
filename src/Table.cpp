@@ -7,20 +7,39 @@
 #include "utils.h"
 
 Table::Table(std::string name, std::vector<std::string> columns_name,
-             std::vector<Type> columns_type) {
+             std::vector<Type> columns_type, std::string primary_key_column,
+             std::vector<bool> is_unique, std::vector<bool> is_not_null,
+             std::vector<std::string> default_value) {
     this->name = name;
     this->column_names = columns_name;
     this->column_types = columns_type;
-    this->primary_key_column = "";
-    this->is_unique = std::vector<bool>(columns_name.size(), false);
-    this->is_not_null = std::vector<bool>(columns_name.size(), false);
-    this->default_value = std::vector<std::string>(columns_name.size(), "");
+    this->primary_key_column = primary_key_column;
+    this->is_unique = is_unique;
+    if (this->is_unique.size() == 0)
+        this->is_unique = std::vector<bool>(columns_name.size(), false);
+    this->is_not_null = is_not_null;
+    if (this->is_not_null.size() == 0)
+        this->is_not_null = std::vector<bool>(columns_name.size(), false);
+    this->default_value = default_value;
+    if (this->default_value.size() == 0)
+        this->default_value = std::vector<std::string>(columns_name.size(), "");
     this->is_set = std::vector<bool>(columns_name.size(), false);
-    this->row_sizes = std::vector<unsigned __int128>();
+    this->row_sizes = std::vector<uint64_t>();
+    if (this->primary_key_column != "")
+        this->indexes[Index(this->name, this->primary_key_column)] =
+            new BTree<void *, Row>();
+    else
+        this->indexes[Index(this->name, this->column_names[0])] =
+            new BTree<void *, Row>();
+    for (int i = 0; i < columns_name.size(); ++i)
+        if (this->is_unique[i])
+            this->indexes[Index(this->name, this->column_names[i])] =
+                new BTree<void *, Row>();
 }
 
 Table::~Table() {
-    for (auto index : this->indexes) delete index.second;
+    std::cout << "Table destructor" << std::endl;
+    for (auto &[index, btree] : this->indexes) delete btree;
 }
 
 std::string Table::insert(std::vector<std::string> column_order,
@@ -54,12 +73,12 @@ std::string Table::insert(std::vector<std::string> column_order,
         }
     }
 
-    unsigned __int128 row_size = 0;
+    uint64_t row_size = 0;
     for (int i = 0; i < values.size(); ++i)
         row_size += utils::getTypeSize(values[i], column_types[i]);
 
     void *row = malloc(row_size);
-    unsigned __int128 offset = 0;
+    uint64_t offset = 0;
 
     for (int i = 0; i < values.size(); ++i) {
         void *value = utils::parseType(values[i], column_types[i]);
@@ -104,8 +123,10 @@ std::string Table::insert(std::vector<std::string> column_order,
         void *key = utils::parseType(
             values[this->getColumnIndex(index.columns_name[0])],
             this->column_types[this->getColumnIndex(index.columns_name[0])]);
-        btree->insert(key, row);
-        // free(key);
+        std::cout << "Inserting " << index.toString() << " " << key << " "
+                  << row << std::endl;
+        btree->insert(key, std::move(row));
+        free(key);
     }
     return "Row inserted";
 }

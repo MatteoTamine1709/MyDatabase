@@ -15,8 +15,12 @@ class TreeNode {
     bool leaf = false;
     KEY keys[2 * BTREE_DEGREE - 1] = {KEY()};
     std::unique_ptr<DATA> data[2 * BTREE_DEGREE - 1] = {nullptr};
-    TreeNode(bool leaf, DATA data);
+    TreeNode(bool leaf, DATA &&data);
     TreeNode(bool leaf) : leaf(leaf){};
+    ~TreeNode() {
+        std::cout << "TreeNode destructor" << std::endl;
+        for (int i = 0; i <= n; ++i) delete C[i];
+    }
 
     void remove(const KEY &k);
     void removeLeaf(int idx);
@@ -56,6 +60,10 @@ class BTree {
 
    public:
     BTree() = default;
+    ~BTree() {
+        std::cout << "BTree destructor" << std::endl;
+        if (root != nullptr) delete root;
+    }
 
     template <typename K = KEY, typename D = void,
               typename std::enable_if<std::is_same<
@@ -81,13 +89,13 @@ class BTree {
                                  : root->search(k);
     }
 
-    void insert(const KEY &k, DATA data);
+    void insert(const KEY &k, DATA &&data);
 
     void remove(const KEY &k);
 };
 
 template <typename KEY, typename DATA>
-TreeNode<KEY, DATA>::TreeNode(bool leaf, DATA data) : leaf(leaf), n(0) {
+TreeNode<KEY, DATA>::TreeNode(bool leaf, DATA &&data) : leaf(leaf), n(0) {
     this->data[0] = std::make_unique<DATA>(data);
 }
 template <typename KEY, typename DATA>
@@ -140,14 +148,15 @@ std::pair<KEY *, DATA *> TreeNode<KEY, DATA>::search(KEY k) {
 }
 
 template <typename KEY, typename DATA>
-void BTree<KEY, DATA>::insert(const KEY &k, DATA data) {
+void BTree<KEY, DATA>::insert(const KEY &k, DATA &&data) {
     if (root == nullptr) {
-        root = new TreeNode<KEY, DATA>(true, data);
+        root = new TreeNode<KEY, DATA>(true, std::move(data));
         root->keys[0] = k;
         root->n = 1;
     } else {
         if (root->n == 2 * BTREE_DEGREE - 1) {
-            TreeNode<KEY, DATA> *s = new TreeNode<KEY, DATA>(false, data);
+            TreeNode<KEY, DATA> *s =
+                new TreeNode<KEY, DATA>(false, std::move(data));
 
             s->C[0] = root;
 
@@ -155,11 +164,11 @@ void BTree<KEY, DATA>::insert(const KEY &k, DATA data) {
 
             int i = 0;
             if (s->keys[0] < k) i++;
-            s->C[i]->insertNonFull(k, data);
+            s->C[i]->insertNonFull(k, std::move(data));
 
             root = s;
         } else
-            root->insertNonFull(k, data);
+            root->insertNonFull(k, std::move(data));
     }
 }
 
