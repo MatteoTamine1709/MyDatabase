@@ -1,7 +1,10 @@
 #include "BTree.h"
 
-TreeNode::TreeNode(bool leaf, Row &&data, size_t keySize)
-    : leaf(leaf), n(0), keySize(keySize) {
+#include <cmath>
+#include <filesystem>
+#include <fstream>
+
+TreeNode::TreeNode(bool leaf, Row &&data) : leaf(leaf), n(0) {
     this->data[0] = std::make_unique<Row>(data);
 }
 void TreeNode::traverse() {
@@ -73,14 +76,58 @@ void TreeNode::searchRange(const Key &start, const Key &end,
     if (!leaf) C[i]->searchRange(start, end, isInclusive, result);
 }
 
+void TreeNode::save(std::string indexPathFolder, int &index) {
+    std::ofstream file(indexPathFolder + "/" + std::to_string(index) + ".idx",
+                       std::ios::binary);
+    file.write((char *)&leaf, sizeof(bool));
+    file.write((char *)&n, sizeof(int));
+    for (int i = 0; i < n; ++i) {
+        keys[i].save(file);
+        std::cout << indexPathFolder + "/" + std::to_string(index) + ".idx"
+                  << "Key[" << i << "]: " << keys[i].toString() << std::endl;
+        data[i]->save(file);
+    }
+    std::cout << "==" << std::endl;
+    file.close();
+    if (!leaf)
+        for (int i = 0; i <= n; ++i) C[i]->save(indexPathFolder, ++index);
+}
+
+TreeNode *TreeNode::load(std::string indexPathFolder, int &index) {
+    std::cout << "Loading index "
+              << indexPathFolder + "/" + std::to_string(index) + ".idx"
+              << std::endl;
+    std::ifstream file(indexPathFolder + "/" + std::to_string(index) + ".idx",
+                       std::ios::binary);
+    bool leaf;
+    int n;
+    file.read((char *)&leaf, sizeof(bool));
+    file.read((char *)&n, sizeof(int));
+    TreeNode *node = new TreeNode(leaf);
+    node->n = n;
+    for (int i = 0; i < n; ++i) {
+        node->keys[i].load(file);
+        std::cout << indexPathFolder + "/" + std::to_string(index) + ".idx"
+                  << "Key[" << i << "]: " << node->keys[i].toString()
+                  << std::endl;
+        node->data[i] = std::make_unique<Row>(file);
+    }
+    std::cout << "==" << std::endl;
+    file.close();
+    if (!leaf)
+        for (int i = 0; i <= n; ++i)
+            node->C[i] = TreeNode::load(indexPathFolder, ++index);
+    return node;
+}
+
 void BTree::insert(const Key &k, Row &&data) {
     if (root == nullptr) {
-        root = new TreeNode(true, std::move(data), keySize);
+        root = new TreeNode(true, std::move(data));
         root->keys[0] = k;
         root->n = 1;
     } else {
         if (root->n == 2 * BTREE_DEGREE - 1) {
-            TreeNode *s = new TreeNode(false, std::move(data), keySize);
+            TreeNode *s = new TreeNode(false, std::move(data));
 
             s->C[0] = root;
 
@@ -313,7 +360,7 @@ void TreeNode::insertNonFull(const Key &k, Row data) {
 }
 
 void TreeNode::splitChild(int i, TreeNode *y) {
-    TreeNode *z = new TreeNode(y->leaf, keySize);
+    TreeNode *z = new TreeNode(y->leaf);
     z->n = BTREE_DEGREE - 1;
 
     for (int j = 0; j < BTREE_DEGREE - 1; j++) {
@@ -338,4 +385,19 @@ void TreeNode::splitChild(int i, TreeNode *y) {
     keys[i] = y->keys[BTREE_DEGREE - 1];
     data[i] = std::move(y->data[BTREE_DEGREE - 1]);
     n = n + 1;
+}
+
+void BTree::save(std::string indexPathFolder) {
+    // Save each TreeNode in a file of MAX_PAGE_SIZE
+    std::filesystem::create_directory(indexPathFolder);
+    int index = 0;
+    root->save(indexPathFolder, index);
+}
+
+BTree *BTree::load(std::string indexPathFolder) {
+    std::cout << "Loading BTree from " << indexPathFolder << std::endl;
+    BTree *btree = new BTree();
+    int index = 0;
+    btree->root = TreeNode::load(indexPathFolder, index);
+    return btree;
 }

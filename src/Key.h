@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <fstream>
 #include <memory>
 #include <string>
 
@@ -58,6 +59,18 @@ struct Key {
     std::string toString() const {
         uint32_t v = *(uint32_t *)this->data.get();
         return std::to_string(v);
+    }
+
+    void save(std::ofstream &file) {
+        file.write((char *)&keySize, sizeof(size_t));
+        file.write((char *)data.get(), keySize);
+    }
+
+    void load(std::ifstream &file) {
+        file.read((char *)&keySize, sizeof(size_t));
+        void *data = malloc(keySize);
+        file.read((char *)data, keySize);
+        this->data = std::shared_ptr<void>(data, free);
     }
 };
 

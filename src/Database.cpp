@@ -53,3 +53,16 @@ std::pair<std::string, void *> Database::select(
         return {"Error: Table not found", {}};
     return tables[table_name]->select(columns, conditions);
 }
+
+void Database::save() {
+    for (auto table : tables) table.second->save("./data/" + name);
+}
+
+void Database::load(std::string name) {
+    for (auto &p :
+         std::filesystem::directory_iterator("./data/" + this->name + "/")) {
+        std::string table_name = p.path().filename().string();
+        Table *table = new Table(p.path().string());
+        tables[table_name] = table;
+    }
+}

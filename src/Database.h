@@ -45,7 +45,7 @@ class Database {
             tables.at(table)->prettyPrint();
     }
     void save();
-    void load();
+    void load(std::string name);
 
    private:
     std::string name;

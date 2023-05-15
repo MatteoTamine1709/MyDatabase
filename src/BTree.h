@@ -16,12 +16,11 @@ class TreeNode {
    public:
     std::array<TreeNode *, 2 *BTREE_DEGREE> C = {nullptr};
     int n = 0;
-    size_t keySize = 0;
     bool leaf = false;
     Key keys[2 * BTREE_DEGREE - 1] = {};
     std::unique_ptr<Row> data[2 * BTREE_DEGREE - 1] = {nullptr};
-    TreeNode(bool leaf, Row &&data, size_t keySize);
-    TreeNode(bool leaf, size_t keySize) : leaf(leaf), keySize(keySize){};
+    TreeNode(bool leaf, Row &&data);
+    TreeNode(bool leaf) : leaf(leaf){};
     ~TreeNode() {
         for (int i = 0; i <= n; ++i) delete C[i];
     }
@@ -45,6 +44,9 @@ class TreeNode {
     void searchRange(const Key &start, const Key &end,
                      std::pair<bool, bool> isInclusive,
                      std::vector<std::pair<Key *, Row *>> &result);
+
+    void save(std::string indexPathFolder, int &index);
+    static TreeNode *load(std::string filepath, int &index);
 };
 
 class BTree {
@@ -63,10 +65,9 @@ class BTree {
                      bool>::value,
         "The Key must implement == operator");
     TreeNode *root = nullptr;
-    size_t keySize = 0;
 
    public:
-    BTree(size_t keySize) : keySize(keySize){};
+    BTree() = default;
     ~BTree() {
         if (root != nullptr) delete root;
     }
@@ -121,6 +122,9 @@ class BTree {
     void insert(const Key &k, Row &&data);
 
     void remove(const Key &k);
+
+    void save(std::string indexPathFolder);
+    static BTree *load(std::string filepath);
 };
 
 #endif

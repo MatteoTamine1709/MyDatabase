@@ -3,6 +3,7 @@
 
 #include <string.h>
 
+#include <filesystem>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -17,6 +18,7 @@
 
 class Table {
    public:
+    Table(std::string filepath) { load(filepath); };
     Table(std::string name, std::vector<std::string> columns_name,
           std::vector<Type> columns_type, std::string primary_key_column,
           std::vector<bool> is_unique, std::vector<bool> is_not_null,
@@ -65,8 +67,8 @@ class Table {
         else
             indexes.at(Index(this->name, this->column_names[0]))->prettyPrint();
     };
-    void save();
-    void load();
+    void save(std::filesystem::path dbFolderPath);
+    void load(std::filesystem::path dbFolderPath);
 
    private:
     std::string name;
