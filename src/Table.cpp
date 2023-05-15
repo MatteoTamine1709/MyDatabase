@@ -26,14 +26,17 @@ Table::Table(std::string name, std::vector<std::string> columns_name,
             std::vector<std::string>(columns_name.size(), "NULL");
     if (this->primary_key_column != "")
         this->indexes[Index(this->name, this->primary_key_column)] =
-            new BTree<void *, Row>();
+            new BTree(type_max_size[this->column_types[this->getColumnIndex(
+                this->primary_key_column)]]);
     else
         this->indexes[Index(this->name, this->column_names[0])] =
-            new BTree<void *, Row>();
+            new BTree(type_max_size[this->column_types[this->getColumnIndex(
+                this->column_names[0])]]);
     for (int i = 0; i < columns_name.size(); ++i)
         if (this->is_unique[i])
             this->indexes[Index(this->name, this->column_names[i])] =
-                new BTree<void *, Row>();
+                new BTree(type_max_size[this->column_types[this->getColumnIndex(
+                    this->column_names[i])]]);
 }
 
 Table::~Table() {
@@ -74,7 +77,6 @@ std::string Table::insert(std::vector<std::string> column_order,
             if (this->is_not_null[i])
                 return "Error: Not null constraint violated";
         } else {
-            std::cout << values[i] << ", " << column_types[i] << std::endl;
             if (utils::isCorrectType(values[i], column_types[i])) {
                 if (column_types[i] == Type::CHAR ||
                     column_types[i] == Type::VARCHAR ||
@@ -122,7 +124,10 @@ std::string Table::insert(std::vector<std::string> column_order,
             utils::parseType(values[primary_key_column_index],
                              column_types[primary_key_column_index]);
         if (this->indexes[Index(this->name, this->primary_key_column)]
-                ->search(primary_key)
+                ->search(Key(
+                    utils::parseType(values[primary_key_column_index],
+                                     column_types[primary_key_column_index]),
+                    type_max_size[column_types[primary_key_column_index]]))
                 .first != nullptr)
             return "Error: Primary key constraint violated";
         free(primary_key);
@@ -132,7 +137,8 @@ std::string Table::insert(std::vector<std::string> column_order,
         if (this->is_unique[i]) {
             void *value = utils::parseType(values[i], column_types[i]);
             if (this->indexes[Index(this->name, this->column_names[i])]
-                    ->search(value)
+                    ->search(Key(utils::parseType(values[i], column_types[i]),
+                                 type_max_size[column_types[i]]))
                     .first != nullptr) {
                 free(value);
                 return "Error: Unique constraint violated";
@@ -157,8 +163,10 @@ std::string Table::insert(std::vector<std::string> column_order,
         // }
         Row r = Row(row, sizes, is_set);
         this->rows.push_back(r);
-        btree->insert(key, std::move(r));
-        free(key);
+        btree->insert(
+            Key(key, type_max_size[this->column_types[this->getColumnIndex(
+                         index.columns_name[0])]]),
+            std::move(r));
     }
     return "Row inserted";
 }
@@ -172,6 +180,9 @@ size_t Table::getColumnIndex(std::string column_name) {
 std::pair<std::string, void *> Table::select(
     std::vector<std::string> requestedColumns,
     std::vector<Condition> conditions) {
+    // Experiment
+    auto range = indexes[Index(this->name, this->column_names[0])]->searchRange(
+        conditions);
     if (requestedColumns.size() == 0) requestedColumns = this->column_names;
     for (int i = 0; i < requestedColumns.size(); ++i)
         if (this->getColumnIndex(requestedColumns[i]) == -1)
@@ -181,10 +192,6 @@ std::pair<std::string, void *> Table::select(
     for (int i = 0; i < requestedColumns.size(); ++i)
         requestedColumnIndexes.push_back(
             this->getColumnIndex(requestedColumns[i]));
-
-    for (int i = 0; i < requestedColumns.size(); ++i)
-        std::cout << requestedColumns[i] << " ";
-    std::cout << std::endl;
     // number of rows, number of columns
     uint64_t headerSize = sizeof(size_t) + sizeof(size_t);
     uint64_t total_size = 0;
@@ -197,11 +204,9 @@ std::pair<std::string, void *> Table::select(
     total_size += headerSize;
     for (auto &row : this->rows)
         total_size += row.computeTotalSize(requestedColumnIndexes);
-    std::cout << "Total size: " << total_size << std::endl;
-    std::cout << "Header size: " << headerSize << std::endl;
     void *rows = malloc(total_size);
     uint64_t offset = 0;
-    size_t rowCount = this->rows.size();
+    size_t rowCount = range.size();
     memcpy((char *)rows + offset, &rowCount, sizeof(size_t));
     offset += sizeof(size_t);
     size_t column_count = requestedColumns.size();
@@ -218,26 +223,12 @@ std::pair<std::string, void *> Table::select(
         memcpy((char *)rows + offset, &type, sizeof(char));
         offset += sizeof(char);
     }
-    for (auto &row : this->rows) {
-        void *b = row.blob(requestedColumnIndexes);
-        std::cout << "Row size: " << row.totalSize << std::endl;
+    for (auto &[key, row] : range) {
+        void *b = row->blob(requestedColumnIndexes);
         memcpy((char *)rows + offset, b,
-               row.computeTotalSize(requestedColumnIndexes));
-        // size_t offset2 = 0;
-        // for (int i = 0; i < this->column_names.size(); ++i) {
-        //     std::cout << "Is set: "
-        //               << (int)*((char *)b +
-        //                         (row.sizes.size() * sizeof(uint64_t)) + i)
-        //               << std::endl;
-        //     std::cout << this->column_names[i] << ": "
-        //               << utils::getValue(this->column_types[i],
-        //                                  (char *)b + row.headerSize +
-        //                                  offset2, row.sizes[i])
-        //               << std::endl;
-        //     offset2 += row.sizes[i];
-        // }
+               row->computeTotalSize(requestedColumnIndexes));
         free(b);
-        offset += row.totalSize;
+        offset += row->totalSize;
     }
     return {std::string("Rows selected"), rows};
 }

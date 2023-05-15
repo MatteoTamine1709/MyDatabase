@@ -5,7 +5,7 @@
 
 #include "string.h"
 namespace utils {
-void *parseType(std::string &value, Type type) {
+void *parseType(const std::string &value, Type type) {
     if (value == "NULL") return nullptr;
     switch (type) {
         case Type::INTEGER: {
@@ -54,7 +54,7 @@ void *parseType(std::string &value, Type type) {
     return nullptr;
 }
 
-void *parseDate(std::string &value) {
+void *parseDate(const std::string &value) {
     if (value.size() != 10 || value[4] != '-' || value[7] != '-')
         return nullptr;
     void *date = malloc(type_min_size[Type::DATE]);
@@ -68,7 +68,7 @@ void *parseDate(std::string &value) {
     return date;
 }
 
-void *parseTime(std::string &value) {
+void *parseTime(const std::string &value) {
     if (value.size() != 8 || value[2] != ':' || value[5] != ':') return nullptr;
     void *time = malloc(type_min_size[Type::TIME]);
     std::string hour = value.substr(0, 2);
@@ -81,7 +81,7 @@ void *parseTime(std::string &value) {
     return time;
 }
 
-void *parseTimestamp(std::string &value) {
+void *parseTimestamp(const std::string &value) {
     if (value.size() != 19 || value[4] != '-' || value[7] != '-' ||
         value[10] != ' ' || value[13] != ':' || value[16] != ':')
         return nullptr;
@@ -101,24 +101,24 @@ void *parseTimestamp(std::string &value) {
     return timestamp;
 }
 
-void *parseBit(std::string &value) {
-    if (value.size() % 8)
-        value = std::string(8 - value.size() % 8, '0') + value;
-    uint64_t size = value.size() / 8;
+void *parseBit(const std::string &value) {
+    std::string bits = value;
+    if (bits.size() % 8) bits = std::string(8 - bits.size() % 8, '0') + bits;
+    uint64_t size = bits.size() / 8;
     void *bit = malloc(size);
     memset(bit, 0, size);
-    for (int i = 0; i < value.size(); ++i)
-        if (value[i] == '1') ((char *)bit)[i / 8] |= (1 << (i % 8));
+    for (int i = 0; i < bits.size(); ++i)
+        if (bits[i] == '1') ((char *)bit)[i / 8] |= (1 << (i % 8));
     return bit;
 }
 
-void *parseBinary(std::string &value) {
+void *parseBinary(const std::string &value) {
     void *binary = malloc(value.size());
     memcpy(binary, value.data(), value.size());
     return binary;
 }
 
-bool isCorrectType(std::string &value, Type type) {
+bool isCorrectType(const std::string &value, Type type) {
     switch (type) {
         case Type::INTEGER:
             try {
@@ -166,7 +166,7 @@ bool isCorrectType(std::string &value, Type type) {
     }
 }
 
-bool isCorrectDate(std::string &value) {
+bool isCorrectDate(const std::string &value) {
     if (value.size() != 10) return false;
     if (value[4] != '-' || value[7] != '-') return false;
     std::string year = value.substr(0, 4);
@@ -183,7 +183,7 @@ bool isCorrectDate(std::string &value) {
     return true;
 }
 
-bool isCorrectTime(std::string &value) {
+bool isCorrectTime(const std::string &value) {
     if (value.size() != 8) return false;
     if (value[2] != ':' || value[5] != ':') return false;
     std::string hour = value.substr(0, 2);
@@ -201,7 +201,7 @@ bool isCorrectTime(std::string &value) {
     return true;
 }
 
-bool isCorrectTimestamp(std::string &value) {
+bool isCorrectTimestamp(const std::string &value) {
     if (value.size() != 19) return false;
     if (value[4] != '-' || value[7] != '-' || value[10] != ' ' ||
         value[13] != ':' || value[16] != ':')
@@ -228,7 +228,7 @@ bool isCorrectTimestamp(std::string &value) {
     return true;
 }
 
-uint64_t getTypeSize(std::string &value, Type type) {
+uint64_t getTypeSize(const std::string &value, Type type) {
     if (value == "NULL") return 0;
     switch (type) {
         case Type::INTEGER:
@@ -410,10 +410,25 @@ void displaySelection(void *blob) {
             std::cout << "| " << std::left << std::setw(maxWidths[j])
                       << values[i][j] << " |";
         }
-        std::cout << std::endl;
+        std::cout << "\n";
     }
     for (int i = 0; i < numberOfColumns; ++i)
         std::cout << std::setfill('-') << std::setw(maxWidths[i] + 4) << "-";
     std::cout << "\n" << std::setfill(' ');
+}
+
+int reverse_memcmp(const void *s1, const void *s2, size_t n) {
+    const unsigned char *p1 = (const unsigned char *)s1 + n - 1;
+    const unsigned char *p2 = (const unsigned char *)s2 + n - 1;
+
+    while (n-- > 0) {
+        if (*p1 != *p2) {
+            return *p1 - *p2;
+        }
+        p1--;
+        p2--;
+    }
+
+    return 0;
 }
 }  // namespace utils

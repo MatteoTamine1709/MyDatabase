@@ -6,22 +6,41 @@
 #include <vector>
 
 #include "Constant.h"
+#include "Key.h"
 #include "Type.h"
+#include "utils.h"
 
-class Condition {
-   public:
-    Condition(std::string column, std::string value, std::string op) {
-        this->column = column;
+struct Condition {
+    Condition(Type type, std::string value, std::string op) {
+        this->type = type;
         this->value = value;
         this->op = op;
     }
     ~Condition(){};
 
-    bool check(std::unordered_map<std::string, Type> columns,
-               std::vector<std::string> values);
+    std::vector<std::pair<Key, Key>> generateRanges() const {
+        if (op == "=") {
+            return {{Key(utils::parseType(value, type), type_max_size[type]),
+                     Key(utils::parseType(value, type), type_max_size[type])}};
+        }
+        if (op == "!=") {
+            return {{Key(nullptr, 0),
+                     Key(utils::parseType(value, type), type_max_size[type])},
+                    {Key(utils::parseType(value, type), type_max_size[type]),
+                     Key(nullptr, 0)}};
+        }
+        if (op == "<=" || op == "<") {
+            return {{Key(nullptr, 0),
+                     Key(utils::parseType(value, type), type_max_size[type])}};
+        }
+        if (op == ">=" || op == ">") {
+            return {{Key(utils::parseType(value, type), type_max_size[type]),
+                     Key(nullptr, 0)}};
+        }
+        return {{Key(nullptr, 0), Key(nullptr, 0)}};
+    }
 
-   private:
-    std::string column;
+    Type type;
     std::string value;
     std::string op;
 };

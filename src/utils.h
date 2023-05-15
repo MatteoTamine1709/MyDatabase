@@ -9,22 +9,24 @@
 #include "Type.h"
 
 namespace utils {
-void *parseType(std::string &value, Type type);
-void *parseDate(std::string &value);
-void *parseTime(std::string &value);
-void *parseTimestamp(std::string &value);
-void *parseBit(std::string &value);
-void *parseBinary(std::string &value);
+void *parseType(const std::string &value, Type type);
+void *parseDate(const std::string &value);
+void *parseTime(const std::string &value);
+void *parseTimestamp(const std::string &value);
+void *parseBit(const std::string &value);
+void *parseBinary(const std::string &value);
 
-bool isCorrectType(std::string &value, Type type);
-bool isCorrectDate(std::string &value);
-bool isCorrectTime(std::string &value);
-bool isCorrectTimestamp(std::string &value);
+bool isCorrectType(const std::string &value, Type type);
+bool isCorrectDate(const std::string &value);
+bool isCorrectTime(const std::string &value);
+bool isCorrectTimestamp(const std::string &value);
 
-uint64_t getTypeSize(std::string &value, Type type);
+uint64_t getTypeSize(const std::string &value, Type type);
 
 std::string getValue(char type, void *value, uint64_t size);
 void displaySelection(void *blob);
+
+int reverse_memcmp(const void *s1, const void *s2, size_t n);
 }  // namespace utils
 
 #endif

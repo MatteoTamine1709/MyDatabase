@@ -1,3 +1,4 @@
+#include <chrono>
 #include <iomanip>
 
 #include "Database.h"
@@ -17,16 +18,33 @@ int main(int argc, char const *argv[]) {
                             {"avatar", Type::BLOB},
                             {"password", Type::VARBINARY},
                             {"role", Type::BIT}});
-    for (int i = 1; i < 3; ++i)
-        std::cout << db.insert("User", {"id", "name", "role"},
-                               {std::to_string(i), "user" + std::to_string(i),
-                                "10000000"})
-                  << std::endl;
+    // Start chrono
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 1; i < 1000000; ++i)
+        db.insert("User", {"id", "name", "role"},
+                  {std::to_string(i), "user" + std::to_string(i), "10000000"});
+    // Stop chrono
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration =
+        std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+    std::cout << "Insert time: " << duration.count() << " microseconds"
+              << std::endl;
 
+    // Start chrone
+    start = std::chrono::high_resolution_clock::now();
+    // for (int i = 1; i < 1000; ++i) {
     auto [selectionMessage, selection] =
         db.select("User", {"id", "name", "role"}, {});
-    std::cout << selectionMessage << std::endl;
-    utils::displaySelection(selection);
+    // utils::displaySelection(selection);
     free(selection);
+    // }
+    // Stop chrono
+    stop = std::chrono::high_resolution_clock::now();
+    duration =
+        std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+    std::cout << "Select time: " << duration.count() << " microseconds"
+              << std::endl;
+    // }
+    // db.prettyPrint("User");
     return 0;
 }
