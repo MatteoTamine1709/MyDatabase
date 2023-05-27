@@ -17,14 +17,14 @@ In the standalone application, the tables will be known at runtime and the user 
 
 - [ ] Save data to disk
 - [ ] Load data from disk
-- [ ] Save indexes to disk
-- [ ] Load indexes from disk
+- [x] Save indexes to disk
+- [x] Load indexes from disk
 - [x] Create table
 - [x] Delete table
 - [x] Insert data
 - [ ] Update data
 - [x] Select data withut filters
-- [ ] Select data with filters
+- [x] Select data with filters
 - [ ] Select data with filters and order by
 - [ ] Select data with filters and order by and limit
 - [x] Primary key

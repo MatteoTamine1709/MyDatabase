@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 
@@ -148,22 +149,12 @@ std::string Table::insert(std::vector<std::string> column_order,
         void *key = utils::parseType(
             values[this->getColumnIndex(index.columns_name[0])],
             this->column_types[this->getColumnIndex(index.columns_name[0])]);
-        // size_t offset = 0;
-        // for (int i = 0; i < this->column_names.size(); ++i) {
-        //     std::cout << this->column_names[i] << ": " << values[i] << ", "
-        //               << sizes[i] << ", " << (int)is_set[i] << std::endl;
-        //     std::cout << "Rowv: "
-        //               << utils::getValue(this->column_types[i],
-        //                                  (char *)row + offset, sizes[i])
-        //               << std::endl;
-        //     offset += sizes[i];
-        // }
-        Row r = Row(row, sizes, is_set);
-        this->rows.push_back(r);
+        std::shared_ptr<Row> r = std::make_shared<Row>(row, sizes, is_set);
         btree->insert(
             Key(key, type_max_size[this->column_types[this->getColumnIndex(
                          index.columns_name[0])]]),
-            std::move(r));
+            r);
+        this->rows.push_back(r);
     }
     return "Row inserted";
 }
@@ -199,8 +190,9 @@ std::pair<std::string, void *> Table::select(
     for (int i = 0; i < requestedColumns.size(); ++i)
         headerSize += sizeof(char);
     total_size += headerSize;
-    for (auto &row : this->rows)
-        total_size += row.computeTotalSize(requestedColumnIndexes);
+    for (auto &row : this->rows) {
+        total_size += row->computeTotalSize(requestedColumnIndexes);
+    }
     void *rows = malloc(total_size);
     uint64_t offset = 0;
     size_t rowCount = range.size();
@@ -221,6 +213,7 @@ std::pair<std::string, void *> Table::select(
         offset += sizeof(char);
     }
     for (auto &[key, row] : range) {
+        std::cout << "Key: " << key->toString() << std::endl;
         void *b = row->blob(requestedColumnIndexes);
         memcpy((char *)rows + offset, b,
                row->computeTotalSize(requestedColumnIndexes));
@@ -276,10 +269,18 @@ void Table::save(std::filesystem::path dbFolderPath) {
         offset += this->default_value[i].size() + 1;
     }
 
+    size_t rows_size = this->rows.size();
+    memcpy(tableInfoBlob + offset, &rows_size, sizeof(size_t));
+
     std::ofstream tableInfoFile(tableFolderPath + "/tableInfo",
                                 std::ios::binary);
     tableInfoFile.write(tableInfoBlob, MAX_PAGE_SIZE);
     tableInfoFile.close();
+
+    std::filesystem::create_directories(tableFolderPath + "/rows");
+    // Save rows
+    auto &btree = this->indexes.begin()->second;
+    btree->saveRows(tableFolderPath + "/rows");
     // Save rows
     for (auto &[index, btree] : this->indexes) {
         std::cout << "Saving index " << index.toString() << std::endl;
@@ -288,9 +289,8 @@ void Table::save(std::filesystem::path dbFolderPath) {
 }
 
 void Table::load(std::filesystem::path dbFolderPath) {
-    std::string tableFolderPath = dbFolderPath.string() + "/" + this->name;
-    std::cout << "Loading table " << tableFolderPath << std::endl;
-    std::ifstream tableInfoFile(tableFolderPath + "/tableInfo",
+    std::cout << "Loading table " << dbFolderPath.string() << std::endl;
+    std::ifstream tableInfoFile(dbFolderPath.string() + "/tableInfo",
                                 std::ios::binary);
     char tableInfoBlob[MAX_PAGE_SIZE] = {0};
     tableInfoFile.read(tableInfoBlob, MAX_PAGE_SIZE);
@@ -354,27 +354,53 @@ void Table::load(std::filesystem::path dbFolderPath) {
         offset += default_value.size() + 1;
     }
 
+    // Rows size
+    size_t rows_size = 0;
+    memcpy(&rows_size, tableInfoBlob + offset, sizeof(size_t));
+    offset += sizeof(size_t);
+    this->rows.resize(rows_size);
+
     // Load rows
+    // Loop through rows folder
+    size_t idx = 0;
+    std::vector<std::filesystem::path> files_in_directory;
+    std::copy(
+        std::filesystem::directory_iterator(dbFolderPath.string() + "/rows"),
+        std::filesystem::directory_iterator(),
+        std::back_inserter(files_in_directory));
+    std::sort(
+        files_in_directory.begin(), files_in_directory.end(),
+        [&](const std::filesystem::path &a, const std::filesystem::path &b) {
+            return std::stoul(a.filename().string()) <
+                   std::stoul(b.filename().string());
+        });
+    for (auto &p : files_in_directory) {
+        std::string row_name = p.filename().string();
+        std::cout << p.string() << std::endl;
+        // int index = std::stoi(row_name);
+        std::ifstream file(p.string());
+        int n = 0;
+        file.read((char *)&n, sizeof(int));
+        for (int i = 0; i < n; ++i)
+            this->rows[idx++] = std::make_shared<Row>(file);
+        file.close();
+    }
+
     if (this->primary_key_column != "")
         this->indexes[Index(this->name, this->primary_key_column)] =
-            BTree::load(tableFolderPath +
-                        Index(this->name, this->primary_key_column).toString());
+            BTree::load(dbFolderPath.string(),
+                        Index(this->name, this->primary_key_column).toString(),
+                        this->rows);
     else
-        this->indexes[Index(this->name, this->column_names[0])] =
-            BTree::load(tableFolderPath +
-                        Index(this->name, this->column_names[0]).toString());
+        this->indexes[Index(this->name, this->column_names[0])] = BTree::load(
+            dbFolderPath.string(),
+            Index(this->name, this->column_names[0]).toString(), this->rows);
     for (int i = 0; i < column_count; ++i) {
         if (this->is_unique[i]) {
             this->indexes[Index(this->name, this->column_names[i])] =
-                BTree::load(
-                    tableFolderPath +
-                    Index(this->name, this->column_names[i]).toString());
+                BTree::load(dbFolderPath.string(),
+                            Index(this->name, this->column_names[i]).toString(),
+                            this->rows);
         }
-    }
-
-    // Set this->rows
-    auto range = this->indexes.begin()->second->searchRange({});
-    for (auto &[key, row] : range) {
-        this->rows.push_back(*row);
     }
 }

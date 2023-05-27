@@ -4,8 +4,8 @@
 #include <filesystem>
 #include <fstream>
 
-TreeNode::TreeNode(bool leaf, Row &&data) : leaf(leaf), n(0) {
-    this->data[0] = std::make_unique<Row>(data);
+TreeNode::TreeNode(bool leaf, std::shared_ptr<Row> data) : leaf(leaf), n(0) {
+    this->data[0] = data;
 }
 void TreeNode::traverse() {
     int i;
@@ -22,7 +22,8 @@ void TreeNode::prettyPrint(int level) {
         // Color green
         std::cout << "\033[1;32m";
         for (int i = 0; i < level; ++i) std::cout << "\t";
-        for (int i = 0; i < n; ++i) std::cout << keys[i].toString() << " ";
+        for (int i = 0; i < n; ++i)
+            std::cout << keys[i].toString() << " " << data[i].get() << " | ";
         std::cout << std::endl;
         // Change color to default
         std::cout << "\033[0m";
@@ -34,28 +35,30 @@ void TreeNode::prettyPrint(int level) {
             // Color Red
             if (level % 2) std::cout << "\033[1;31m";
             for (int i = 0; i < level; ++i) std::cout << "\t";
-            std::cout << keys[j].toString() << std::endl;
+            std::cout << keys[j].toString() << " " << data[j].get()
+                      << std::endl;
             std::cout << "\033[0m";
         }
         C[n]->prettyPrint(level + 1);
     }
 }
 
-std::pair<Key *, Row *> TreeNode::search(Key k) {
+std::pair<Key *, std::shared_ptr<Row>> TreeNode::search(Key k) {
     int i = 0;
     while (i < n && k > keys[i]) i++;
 
     if (keys[i] == k && i < n)
-        return std::pair<Key *, Row *>(&keys[i], data[i].get());
+        return std::pair<Key *, std::shared_ptr<Row>>(&keys[i], data[i]);
 
-    if (leaf == true) return std::pair<Key *, Row *>(nullptr, nullptr);
+    if (leaf == true)
+        return std::pair<Key *, std::shared_ptr<Row>>(nullptr, nullptr);
 
     return C[i]->search(k);
 }
 
-void TreeNode::searchRange(const Key &start, const Key &end,
-                           std::pair<bool, bool> isInclusive,
-                           std::vector<std::pair<Key *, Row *>> &result) {
+void TreeNode::searchRange(
+    const Key &start, const Key &end, std::pair<bool, bool> isInclusive,
+    std::vector<std::pair<Key *, std::shared_ptr<Row>>> &result) {
     int i = 0;
     while (i < n && keys[i] < start && start.data != nullptr) i++;
     while (i < n && !isInclusive.first && keys[i] <= start &&
@@ -63,13 +66,15 @@ void TreeNode::searchRange(const Key &start, const Key &end,
         i++;
     while (i < n && keys[i] < end) {
         if (!leaf) C[i]->searchRange(start, end, isInclusive, result);
-        result.push_back(std::pair<Key *, Row *>(&keys[i], data[i].get()));
+        result.push_back(
+            std::pair<Key *, std::shared_ptr<Row>>(&keys[i], data[i]));
         i++;
     }
     while (i < n && keys[i] <= end) {
         if (!leaf) C[i]->searchRange(start, end, isInclusive, result);
         if (isInclusive.second && keys[i] == end) {
-            result.push_back(std::pair<Key *, Row *>(&keys[i], data[i].get()));
+            result.push_back(
+                std::pair<Key *, std::shared_ptr<Row>>(&keys[i], data[i]));
         }
         i++;
     }
@@ -77,15 +82,15 @@ void TreeNode::searchRange(const Key &start, const Key &end,
 }
 
 void TreeNode::save(std::string indexPathFolder, int &index) {
-    std::ofstream file(indexPathFolder + "/" + std::to_string(index) + ".idx",
+    std::ofstream file(indexPathFolder + "/" + std::to_string(index),
                        std::ios::binary);
     file.write((char *)&leaf, sizeof(bool));
     file.write((char *)&n, sizeof(int));
     for (int i = 0; i < n; ++i) {
         keys[i].save(file);
-        std::cout << indexPathFolder + "/" + std::to_string(index) + ".idx"
-                  << "Key[" << i << "]: " << keys[i].toString() << std::endl;
-        data[i]->save(file);
+        std::cout << indexPathFolder + "/" + std::to_string(index) << "Key["
+                  << i << "]: " << keys[i].toString() << std::endl;
+        // data[i]->save(file);
     }
     std::cout << "==" << std::endl;
     file.close();
@@ -93,41 +98,53 @@ void TreeNode::save(std::string indexPathFolder, int &index) {
         for (int i = 0; i <= n; ++i) C[i]->save(indexPathFolder, ++index);
 }
 
-TreeNode *TreeNode::load(std::string indexPathFolder, int &index) {
+void TreeNode::saveRows(std::string rowPathFolder, int &index) {
+    std::ofstream file(rowPathFolder + "/" + std::to_string(index),
+                       std::ios::binary);
+    file.write((char *)&n, sizeof(int));
+    for (int i = 0; i < n; ++i) data[i]->save(file);
+    file.close();
+    if (!leaf)
+        for (int i = 0; i <= n; ++i) C[i]->saveRows(rowPathFolder, ++index);
+}
+
+TreeNode *TreeNode::load(std::string indexPathFolder, std::string rowFolderpath,
+                         int &index, std::vector<std::shared_ptr<Row>> &rows,
+                         int &rowIdx) {
     std::cout << "Loading index "
-              << indexPathFolder + "/" + std::to_string(index) + ".idx"
-              << std::endl;
-    std::ifstream file(indexPathFolder + "/" + std::to_string(index) + ".idx",
+              << indexPathFolder + "/" + std::to_string(index) << std::endl;
+    std::ifstream file(indexPathFolder + "/" + std::to_string(index),
                        std::ios::binary);
     bool leaf;
-    int n;
     file.read((char *)&leaf, sizeof(bool));
-    file.read((char *)&n, sizeof(int));
     TreeNode *node = new TreeNode(leaf);
-    node->n = n;
-    for (int i = 0; i < n; ++i) {
+    file.read((char *)&node->n, sizeof(int));
+    std::cout << "n: " << node->n << std::endl;
+    std::cout << "leaf: " << node->leaf << std::endl;
+    for (int i = 0; i < node->n; ++i) {
         node->keys[i].load(file);
-        std::cout << indexPathFolder + "/" + std::to_string(index) + ".idx"
-                  << "Key[" << i << "]: " << node->keys[i].toString()
-                  << std::endl;
-        node->data[i] = std::make_unique<Row>(file);
+        node->data[i] = rows[rowIdx++];
+        std::cout << indexPathFolder + "/" + std::to_string(index) << "\nKey["
+                  << i << "]: " << node->keys[i].toString() << std::endl;
     }
     std::cout << "==" << std::endl;
     file.close();
     if (!leaf)
-        for (int i = 0; i <= n; ++i)
-            node->C[i] = TreeNode::load(indexPathFolder, ++index);
+        for (int i = 0; i <= node->n; ++i)
+            node->C[i] =
+                load(indexPathFolder, rowFolderpath, ++index, rows, rowIdx);
+
     return node;
 }
 
-void BTree::insert(const Key &k, Row &&data) {
+void BTree::insert(const Key &k, std::shared_ptr<Row> data) {
     if (root == nullptr) {
-        root = new TreeNode(true, std::move(data));
+        root = new TreeNode(true, data);
         root->keys[0] = k;
         root->n = 1;
     } else {
         if (root->n == 2 * BTREE_DEGREE - 1) {
-            TreeNode *s = new TreeNode(false, std::move(data));
+            TreeNode *s = new TreeNode(false, data);
 
             s->C[0] = root;
 
@@ -135,11 +152,11 @@ void BTree::insert(const Key &k, Row &&data) {
 
             int i = 0;
             if (s->keys[0] < k) i++;
-            s->C[i]->insertNonFull(k, std::move(data));
+            s->C[i]->insertNonFull(k, data);
 
             root = s;
         } else
-            root->insertNonFull(k, std::move(data));
+            root->insertNonFull(k, data);
     }
 }
 
@@ -193,7 +210,7 @@ void TreeNode::remove(const Key &k) {
 void TreeNode::removeLeaf(int idx) {
     for (int i = idx + 1; i < n; ++i) {
         keys[i - 1] = keys[i];
-        data[i - 1] = std::move(data[i]);
+        data[i - 1] = data[i];
     }
     n--;
 }
@@ -204,12 +221,12 @@ void TreeNode::removeNonLeaf(int idx) {
     if (C[idx]->n >= BTREE_DEGREE) {
         auto pred = getPred(idx);
         keys[idx] = pred.first;
-        data[idx] = std::move(pred.second);
+        data[idx] = pred.second;
         C[idx]->remove(pred.first);
     } else if (C[idx + 1]->n >= BTREE_DEGREE) {
         auto succ = getSucc(idx);
         keys[idx] = succ.first;
-        data[idx] = std::move(succ.second);
+        data[idx] = succ.second;
         C[idx + 1]->remove(succ.first);
     } else {
         merge(idx);
@@ -234,19 +251,19 @@ void TreeNode::fill(int idx) {
     return;
 }
 
-std::pair<Key, std::unique_ptr<Row> &> TreeNode::getPred(int idx) {
+std::pair<Key, std::shared_ptr<Row>> TreeNode::getPred(int idx) {
     TreeNode *cur = C[idx];
     while (!cur->leaf) cur = cur->C[cur->n];
 
-    return std::pair<Key, std::unique_ptr<Row> &>(cur->keys[cur->n - 1],
-                                                  cur->data[cur->n - 1]);
+    return std::pair<Key, std::shared_ptr<Row>>(cur->keys[cur->n - 1],
+                                                cur->data[cur->n - 1]);
 }
 
-std::pair<Key, std::unique_ptr<Row> &> TreeNode::getSucc(int idx) {
+std::pair<Key, std::shared_ptr<Row>> TreeNode::getSucc(int idx) {
     TreeNode *cur = C[idx + 1];
     while (!cur->leaf) cur = cur->C[0];
 
-    return std::pair<Key, std::unique_ptr<Row> &>(cur->keys[0], cur->data[0]);
+    return std::pair<Key, std::shared_ptr<Row>>(cur->keys[0], cur->data[0]);
 }
 
 void TreeNode::borrowFromPrev(int idx) {
@@ -255,7 +272,7 @@ void TreeNode::borrowFromPrev(int idx) {
 
     for (int i = child->n - 1; i >= 0; --i) {
         child->keys[i + 1] = child->keys[i];
-        child->data[i + 1] = std::move(child->data[i]);
+        child->data[i + 1] = child->data[i];
     }
 
     if (!child->leaf) {
@@ -263,12 +280,12 @@ void TreeNode::borrowFromPrev(int idx) {
     }
 
     child->keys[0] = keys[idx - 1];
-    child->data[0] = std::move(data[idx - 1]);
+    child->data[0] = data[idx - 1];
 
     if (!child->leaf) child->C[0] = sibling->C[sibling->n];
 
     keys[idx - 1] = sibling->keys[sibling->n - 1];
-    data[idx - 1] = std::move(sibling->data[sibling->n - 1]);
+    data[idx - 1] = sibling->data[sibling->n - 1];
 
     child->n += 1;
     sibling->n -= 1;
@@ -281,16 +298,16 @@ void TreeNode::borrowFromNext(int idx) {
     TreeNode *sibling = C[idx + 1];
 
     child->keys[(child->n)] = keys[idx];
-    child->data[(child->n)] = std::move(data[idx]);
+    child->data[(child->n)] = data[idx];
 
     if (!(child->leaf)) child->C[(child->n) + 1] = sibling->C[0];
 
     keys[idx] = sibling->keys[0];
-    data[idx] = std::move(sibling->data[0]);
+    data[idx] = sibling->data[0];
 
     for (int i = 1; i < sibling->n; ++i) {
         sibling->keys[i - 1] = sibling->keys[i];
-        sibling->data[i - 1] = std::move(sibling->data[i]);
+        sibling->data[i - 1] = sibling->data[i];
     }
 
     if (!sibling->leaf) {
@@ -308,11 +325,11 @@ void TreeNode::merge(int idx) {
     TreeNode *sibling = C[idx + 1];
 
     child->keys[BTREE_DEGREE - 1] = keys[idx];
-    child->data[BTREE_DEGREE - 1] = std::move(data[idx]);
+    child->data[BTREE_DEGREE - 1] = data[idx];
 
     for (int i = 0; i < sibling->n; ++i) {
         child->keys[i + BTREE_DEGREE] = sibling->keys[i];
-        child->data[i + BTREE_DEGREE] = std::move(sibling->data[i]);
+        child->data[i + BTREE_DEGREE] = sibling->data[i];
     }
 
     if (!child->leaf) {
@@ -322,7 +339,7 @@ void TreeNode::merge(int idx) {
 
     for (int i = idx + 1; i < n; ++i) {
         keys[i - 1] = keys[i];
-        data[i - 1] = std::move(data[i]);
+        data[i - 1] = data[i];
     }
 
     for (int i = idx + 2; i <= n; ++i) C[i - 1] = C[i];
@@ -334,18 +351,18 @@ void TreeNode::merge(int idx) {
     return;
 }
 
-void TreeNode::insertNonFull(const Key &k, Row data) {
+void TreeNode::insertNonFull(const Key &k, std::shared_ptr<Row> data) {
     int i = n - 1;
 
     if (leaf == true) {
         while (i >= 0 && keys[i] > k) {
             keys[i + 1] = keys[i];
-            this->data[i + 1] = std::move(this->data[i]);
+            this->data[i + 1] = this->data[i];
             i--;
         }
 
         keys[i + 1] = k;
-        this->data[i + 1] = std::make_unique<Row>(data);
+        this->data[i + 1] = data;
         n = n + 1;
     } else {
         while (i >= 0 && keys[i] > k) i--;
@@ -365,7 +382,7 @@ void TreeNode::splitChild(int i, TreeNode *y) {
 
     for (int j = 0; j < BTREE_DEGREE - 1; j++) {
         z->keys[j] = y->keys[j + BTREE_DEGREE];
-        z->data[j] = std::move(y->data[j + BTREE_DEGREE]);
+        z->data[j] = y->data[j + BTREE_DEGREE];
     }
 
     if (y->leaf == false) {
@@ -379,11 +396,11 @@ void TreeNode::splitChild(int i, TreeNode *y) {
 
     for (int j = n - 1; j >= i; j--) {
         keys[j + 1] = keys[j];
-        data[j + 1] = std::move(data[j]);
+        data[j + 1] = data[j];
     }
 
     keys[i] = y->keys[BTREE_DEGREE - 1];
-    data[i] = std::move(y->data[BTREE_DEGREE - 1]);
+    data[i] = y->data[BTREE_DEGREE - 1];
     n = n + 1;
 }
 
@@ -394,10 +411,21 @@ void BTree::save(std::string indexPathFolder) {
     root->save(indexPathFolder, index);
 }
 
-BTree *BTree::load(std::string indexPathFolder) {
-    std::cout << "Loading BTree from " << indexPathFolder << std::endl;
-    BTree *btree = new BTree();
+void BTree::saveRows(std::string rowPathFolder) {
+    std::filesystem::create_directory(rowPathFolder);
     int index = 0;
-    btree->root = TreeNode::load(indexPathFolder, index);
+    root->saveRows(rowPathFolder, index);
+}
+
+BTree *BTree::load(std::string tablePath, std::string indexName,
+                   std::vector<std::shared_ptr<Row>> &rows) {
+    std::cout << "Loading BTree from " << (tablePath + indexName) << std::endl;
+    std::string rowFolderpath = tablePath + "/rows";
+    BTree *btree = new BTree();
+    std::cout << tablePath << ", " << indexName << std::endl;
+    int index = 0;
+    int rowIndex = 0;
+    btree->root = TreeNode::load(tablePath + "/" + indexName, rowFolderpath,
+                                 index, rows, rowIndex);
     return btree;
 }

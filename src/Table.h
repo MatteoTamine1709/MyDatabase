@@ -74,7 +74,7 @@ class Table {
     std::string name;
     std::vector<std::string> column_names;
     std::vector<Type> column_types;
-    std::vector<Row> rows;
+    std::vector<std::shared_ptr<Row>> rows;
     std::unordered_map<Index, BTree *, Index::hashFn> indexes;
     std::vector<bool> is_unique;
     std::vector<bool> is_not_null;
