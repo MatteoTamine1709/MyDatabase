@@ -18,8 +18,8 @@ class TreeNode {
     int n = 0;
     bool leaf = false;
     Key keys[2 * BTREE_DEGREE - 1] = {};
-    std::shared_ptr<Row> data[2 * BTREE_DEGREE - 1] = {nullptr};
-    TreeNode(bool leaf, std::shared_ptr<Row> data);
+    int64_t data[2 * BTREE_DEGREE - 1] = {-1};
+    TreeNode(bool leaf, int64_t data);
     TreeNode(bool leaf) : leaf(leaf){};
     ~TreeNode() {
         for (int i = 0; i <= n; ++i) delete C[i];
@@ -29,27 +29,25 @@ class TreeNode {
     void removeLeaf(int idx);
     void removeNonLeaf(int idx);
     void fill(int idx);
-    std::pair<Key, std::shared_ptr<Row>> getPred(int idx);
-    std::pair<Key, std::shared_ptr<Row>> getSucc(int idx);
+    std::pair<Key, int64_t> getPred(int idx);
+    std::pair<Key, int64_t> getSucc(int idx);
     void merge(int idx);
     void borrowFromPrev(int idx);
     void borrowFromNext(int idx);
 
-    void insertNonFull(const Key &k, std::shared_ptr<Row> data);
+    void insertNonFull(const Key &k, int64_t data);
     void splitChild(int i, TreeNode *y);
     void traverse();
     void prettyPrint(int level);
 
-    std::pair<Key *, std::shared_ptr<Row>> search(Key k);
-    void searchRange(
-        const Key &start, const Key &end, std::pair<bool, bool> isInclusive,
-        std::vector<std::pair<Key *, std::shared_ptr<Row>>> &result);
+    std::pair<Key *, int64_t> search(Key k);
+    void searchRange(const Key &start, const Key &end,
+                     std::pair<bool, bool> isInclusive,
+                     std::vector<std::pair<Key *, int64_t>> &result);
 
     void save(std::string indexPathFolder, int &index);
-    void saveRows(std::string rowPathFolder, int &index);
     static TreeNode *load(std::string filepath, std::string rowFolderpath,
-                          int &index, std::vector<std::shared_ptr<Row>> &rows,
-                          int &rowIndex);
+                          int &index, std::vector<std::shared_ptr<Row>> &rows);
 };
 
 class BTree {
@@ -72,16 +70,15 @@ class BTree {
             root->prettyPrint(0);
     }
 
-    std::pair<Key *, std::shared_ptr<Row>> search(const Key &k) {
-        return (root == nullptr)
-                   ? std::pair<Key *, std::shared_ptr<Row>>(nullptr, nullptr)
-                   : root->search(k);
+    std::pair<Key *, int64_t> search(const Key &k) {
+        return (root == nullptr) ? std::pair<Key *, int64_t>(nullptr, -1)
+                                 : root->search(k);
     }
 
-    std::vector<std::pair<Key *, std::shared_ptr<Row>>> searchRange(
+    std::vector<std::pair<Key *, int64_t>> searchRange(
         const std::vector<Condition> &conditions) {
         std::pair<bool, bool> isInclusive = {true, true};
-        std::vector<std::pair<Key *, std::shared_ptr<Row>>> result;
+        std::vector<std::pair<Key *, int64_t>> result;
         for (auto condition : conditions) {
             auto ranges = condition.generateRanges();
             if (condition.op == "<") isInclusive.second = false;
@@ -100,21 +97,20 @@ class BTree {
             return searchRange(Key(), Key(), isInclusive);
         return result;
     }
-    std::vector<std::pair<Key *, std::shared_ptr<Row>>> searchRange(
+    std::vector<std::pair<Key *, int64_t>> searchRange(
         const Key &start, const Key &end, std::pair<bool, bool> isInclusive) {
-        std::vector<std::pair<Key *, std::shared_ptr<Row>>> result;
+        std::vector<std::pair<Key *, int64_t>> result;
         if (root == nullptr) return result;
 
         root->searchRange(start, end, isInclusive, result);
         return result;
     }
 
-    void insert(const Key &k, std::shared_ptr<Row> data);
+    void insert(const Key &k, int64_t data);
 
     void remove(const Key &k);
 
     void save(std::string indexPathFolder);
-    void saveRows(std::string rowPathFolder);
     static BTree *load(std::string filepath, std::string indexName,
                        std::vector<std::shared_ptr<Row>> &data);
 };

@@ -150,11 +150,11 @@ std::string Table::insert(std::vector<std::string> column_order,
             values[this->getColumnIndex(index.columns_name[0])],
             this->column_types[this->getColumnIndex(index.columns_name[0])]);
         std::shared_ptr<Row> r = std::make_shared<Row>(row, sizes, is_set);
+        this->rows.push_back(r);
         btree->insert(
             Key(key, type_max_size[this->column_types[this->getColumnIndex(
                          index.columns_name[0])]]),
-            r);
-        this->rows.push_back(r);
+            this->rows.size() - 1);
     }
     return "Row inserted";
 }
@@ -190,9 +190,8 @@ std::pair<std::string, void *> Table::select(
     for (int i = 0; i < requestedColumns.size(); ++i)
         headerSize += sizeof(char);
     total_size += headerSize;
-    for (auto &row : this->rows) {
+    for (auto &row : this->rows)
         total_size += row->computeTotalSize(requestedColumnIndexes);
-    }
     void *rows = malloc(total_size);
     uint64_t offset = 0;
     size_t rowCount = range.size();
@@ -212,13 +211,13 @@ std::pair<std::string, void *> Table::select(
         memcpy((char *)rows + offset, &type, sizeof(char));
         offset += sizeof(char);
     }
-    for (auto &[key, row] : range) {
+    for (auto &[key, rowIdx] : range) {
         std::cout << "Key: " << key->toString() << std::endl;
-        void *b = row->blob(requestedColumnIndexes);
+        void *b = this->rows[rowIdx]->blob(requestedColumnIndexes);
         memcpy((char *)rows + offset, b,
-               row->computeTotalSize(requestedColumnIndexes));
+               this->rows[rowIdx]->computeTotalSize(requestedColumnIndexes));
         free(b);
-        offset += row->totalSize;
+        offset += this->rows[rowIdx]->totalSize;
     }
     return {std::string("Rows selected"), rows};
 }
@@ -279,9 +278,16 @@ void Table::save(std::filesystem::path dbFolderPath) {
 
     std::filesystem::create_directories(tableFolderPath + "/rows");
     // Save rows
-    auto &btree = this->indexes.begin()->second;
-    btree->saveRows(tableFolderPath + "/rows");
-    // Save rows
+    int index = 0;
+    for (auto &row : this->rows) {
+        std::cout << "Saving row " << index << std::endl;
+        std::ofstream file(tableFolderPath + "/rows/" + std::to_string(index),
+                           std::ios::binary);
+        row->save(file);
+        file.close();
+        ++index;
+    }
+    // Save indexes
     for (auto &[index, btree] : this->indexes) {
         std::cout << "Saving index " << index.toString() << std::endl;
         btree->save(tableFolderPath + "/" + index.toString());
@@ -327,21 +333,21 @@ void Table::load(std::filesystem::path dbFolderPath) {
     // std::cout << "'" << this->primary_key_column << "'" << std::endl;
 
     // Is unique
-    // std::cout << "Is unique" << std::endl;
+    std::cout << "Is unique" << std::endl;
     for (int i = 0; i < column_count; ++i) {
         bool temp = false;
         memcpy(&temp, tableInfoBlob + offset, sizeof(bool));
-        // std::cout << temp << std::endl;
+        std::cout << temp << std::endl;
         this->is_unique.push_back(temp);
         offset += sizeof(bool);
     }
 
     // Is not null
-    // std::cout << "Is not null" << std::endl;
+    std::cout << "Is not null" << std::endl;
     for (int i = 0; i < column_count; ++i) {
         bool temp = false;
         memcpy(&temp, tableInfoBlob + offset, sizeof(bool));
-        // std::cout << temp << std::endl;
+        std::cout << temp << std::endl;
         this->is_not_null.push_back(temp);
         offset += sizeof(bool);
     }
@@ -349,15 +355,18 @@ void Table::load(std::filesystem::path dbFolderPath) {
     // Default value
     for (int i = 0; i < column_count; ++i) {
         std::string default_value = std::string(tableInfoBlob + offset);
-        // std::cout << default_value << std::endl;
+        std::cout << default_value << std::endl;
         this->default_value.push_back(default_value);
         offset += default_value.size() + 1;
     }
 
+    std::cout << "Column count: " << column_count << std::endl;
+    std::cout << "Offset: " << offset << std::endl;
     // Rows size
     size_t rows_size = 0;
     memcpy(&rows_size, tableInfoBlob + offset, sizeof(size_t));
     offset += sizeof(size_t);
+    std::cout << "ROW SIZE: " << rows_size << std::endl;
     this->rows.resize(rows_size);
 
     // Load rows
@@ -380,9 +389,9 @@ void Table::load(std::filesystem::path dbFolderPath) {
         // int index = std::stoi(row_name);
         std::ifstream file(p.string());
         int n = 0;
-        file.read((char *)&n, sizeof(int));
-        for (int i = 0; i < n; ++i)
-            this->rows[idx++] = std::make_shared<Row>(file);
+        // file.read((char *)&n, sizeof(int));
+        // for (int i = 0; i < n; ++i)
+        this->rows[idx++] = std::make_shared<Row>(file);
         file.close();
     }
 
