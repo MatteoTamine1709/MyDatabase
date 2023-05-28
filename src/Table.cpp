@@ -11,7 +11,7 @@
 Table::Table(std::string name, std::vector<std::string> columns_name,
              std::vector<Type> columns_type, std::string primary_key_column,
              std::vector<bool> is_unique, std::vector<bool> is_not_null,
-             std::vector<std::string> default_value) {
+             std::vector<std::string> default_values) {
     this->name = name;
     this->column_names = columns_name;
     this->column_types = columns_type;
@@ -22,9 +22,9 @@ Table::Table(std::string name, std::vector<std::string> columns_name,
     this->is_not_null = is_not_null;
     if (this->is_not_null.size() == 0)
         this->is_not_null = std::vector<bool>(columns_name.size(), false);
-    this->default_value = default_value;
-    if (this->default_value.size() == 0)
-        this->default_value =
+    this->default_values = default_values;
+    if (this->default_values.size() == 0)
+        this->default_values =
             std::vector<std::string>(columns_name.size(), "NULL");
     if (this->primary_key_column != "")
         this->indexes[Index(this->name, this->primary_key_column)] =
@@ -68,7 +68,7 @@ std::string Table::insert(std::vector<std::string> column_order,
     std::vector<char> is_set(this->column_names.size(), true);
     for (int i = 0; i < values.size(); ++i) {
         if (values[i] == "") {
-            values[i] = this->default_value[i];
+            values[i] = this->default_values[i];
         }
         if (values[i] == "NULL") {
             is_set[i] = false;
@@ -233,6 +233,7 @@ void Table::save(std::filesystem::path dbFolderPath) {
     offset += this->name.size() + 1;
     // Column names
     size_t column_names_size = this->column_names.size();
+    std::cout << "# Columns: " << column_names_size << std::endl;
     memcpy(tableInfoBlob + offset, &column_names_size, sizeof(size_t));
     offset += sizeof(size_t);
     for (int i = 0; i < this->column_names.size(); ++i) {
@@ -241,6 +242,7 @@ void Table::save(std::filesystem::path dbFolderPath) {
         offset += this->column_names[i].size() + 1;
     }
     // Column types
+    std::cout << "# Column types: " << this->column_types.size() << std::endl;
     for (int i = 0; i < this->column_types.size(); ++i) {
         memcpy(tableInfoBlob + offset, &this->column_types[i], sizeof(char));
         offset += sizeof(char);
@@ -250,22 +252,26 @@ void Table::save(std::filesystem::path dbFolderPath) {
            this->primary_key_column.size() + 1);
     offset += this->primary_key_column.size() + 1;
     // Is unique
+    std::cout << "# Is unique: " << this->is_unique.size() << std::endl;
     for (int i = 0; i < this->is_unique.size(); ++i) {
         bool temp = this->is_unique[i];
         memcpy(tableInfoBlob + offset, &temp, sizeof(bool));
         offset += sizeof(bool);
     }
     // Is not null
+    std::cout << "# Is not null: " << this->is_not_null.size() << std::endl;
     for (int i = 0; i < this->is_not_null.size(); ++i) {
         bool temp = this->is_not_null[i];
         memcpy(tableInfoBlob + offset, &temp, sizeof(bool));
         offset += sizeof(bool);
     }
     // Default value
-    for (int i = 0; i < this->default_value.size(); ++i) {
-        memcpy(tableInfoBlob + offset, this->default_value[i].c_str(),
-               this->default_value[i].size() + 1);
-        offset += this->default_value[i].size() + 1;
+    std::cout << "# Default value: " << this->default_values.size()
+              << std::endl;
+    for (int i = 0; i < this->default_values.size(); ++i) {
+        memcpy(tableInfoBlob + offset, this->default_values[i].c_str(),
+               this->default_values[i].size() + 1);
+        offset += this->default_values[i].size() + 1;
     }
 
     size_t rows_size = this->rows.size();
@@ -310,6 +316,7 @@ void Table::load(std::filesystem::path dbFolderPath) {
     size_t column_count = 0;
     memcpy(&column_count, tableInfoBlob + offset, sizeof(size_t));
     offset += sizeof(size_t);
+    std::cout << "LOADING " << column_count << " COLUMNS" << std::endl;
     // Column names
     for (int i = 0; i < column_count; ++i) {
         std::string column_name = std::string(tableInfoBlob + offset);
@@ -356,7 +363,7 @@ void Table::load(std::filesystem::path dbFolderPath) {
     for (int i = 0; i < column_count; ++i) {
         std::string default_value = std::string(tableInfoBlob + offset);
         std::cout << default_value << std::endl;
-        this->default_value.push_back(default_value);
+        this->default_values.push_back(default_value);
         offset += default_value.size() + 1;
     }
 

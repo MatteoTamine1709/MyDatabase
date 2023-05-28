@@ -22,7 +22,7 @@ class Table {
     Table(std::string name, std::vector<std::string> columns_name,
           std::vector<Type> columns_type, std::string primary_key_column,
           std::vector<bool> is_unique, std::vector<bool> is_not_null,
-          std::vector<std::string> default_value);
+          std::vector<std::string> default_values);
     ~Table();
 
     std::string insert(std::vector<std::string> column_order,
@@ -39,21 +39,23 @@ class Table {
     void prettyPrint() const {
         std::cout << "Table name: " << name << std::endl;
         std::cout << "Column names: ";
-        for (auto column_name : column_names) std::cout << column_name << " ";
+        for (auto column_name : this->column_names)
+            std::cout << column_name << " ";
         std::cout << std::endl;
         std::cout << "Column types: ";
-        for (auto column_type : column_types)
+        for (auto column_type : this->column_types)
             std::cout << type_name[column_type] << " ";
         std::cout << std::endl;
         std::cout << "Primary key column: " << primary_key_column << std::endl;
         std::cout << "Is unique: ";
-        for (auto is_unique : is_unique) std::cout << is_unique << " ";
+        for (auto is_unique : this->is_unique) std::cout << is_unique << " ";
         std::cout << std::endl;
         std::cout << "Is not null: ";
-        for (auto is_not_null : is_not_null) std::cout << is_not_null << " ";
+        for (auto is_not_null : this->is_not_null)
+            std::cout << is_not_null << " ";
         std::cout << std::endl;
         std::cout << "Default value: ";
-        for (auto default_value : default_value)
+        for (auto default_value : this->default_values)
             std::cout << default_value << " ";
         std::cout << std::endl;
         std::cout << std::endl;
@@ -78,7 +80,7 @@ class Table {
     std::unordered_map<Index, BTree *, Index::hashFn> indexes;
     std::vector<bool> is_unique;
     std::vector<bool> is_not_null;
-    std::vector<std::string> default_value = {"NULL"};
+    std::vector<std::string> default_values;
     std::string primary_key_column;
 
     size_t getColumnIndex(std::string column_name);

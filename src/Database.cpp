@@ -16,7 +16,7 @@ std::string Database::showTables() {
 std::string Database::createTable(
     std::string name, std::vector<std::pair<std::string, Type>> columns,
     std::string primary_key_column, std::vector<bool> is_unique,
-    std::vector<bool> is_not_null, std::vector<std::string> default_value) {
+    std::vector<bool> is_not_null, std::vector<std::string> default_values) {
     if (tables.find(name) != tables.end()) return "Error: Table already exists";
     std::vector<std::string> column_names;
     std::vector<Type> column_types;
@@ -26,7 +26,7 @@ std::string Database::createTable(
     }
     Table *table =
         new Table(name, column_names, column_types, primary_key_column,
-                  is_unique, is_not_null, default_value);
+                  is_unique, is_not_null, default_values);
     tables[name] = table;
     return "Table created";
 }

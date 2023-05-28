@@ -20,7 +20,7 @@ class Database {
         std::string primary_key_column = "",
         std::vector<bool> is_unique = std::vector<bool>(),
         std::vector<bool> is_not_null = std::vector<bool>(),
-        std::vector<std::string> default_value = std::vector<std::string>());
+        std::vector<std::string> default_values = std::vector<std::string>());
     std::string dropTable(std::string name);
     std::string insert(std::string table_name,
                        std::vector<std::string> column_order,
