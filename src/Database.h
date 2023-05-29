@@ -34,15 +34,15 @@ class Database {
                        std::string where_value);
     std::string delete_(std::string table_name, std::string column,
                         std::string value);
-    std::string createIndex(std::string table_name, std::string index_name,
-                            std::vector<std::string> column_name);
+    std::string createIndex(std::string table_name,
+                            const std::vector<std::string> &column_names);
     std::string dropIndex(std::string table_name, std::string index_name);
     std::string query(std::string query);
-    void prettyPrint(std::string table) const {
-        if (tables.find(table) == tables.end())
+    void prettyPrint(Index idx) const {
+        if (tables.find(idx.table) == tables.end())
             std::cout << "Table not found" << std::endl;
         else
-            tables.at(table)->prettyPrint();
+            tables.at(idx.table)->prettyPrint(idx);
     }
     void save();
     void load(std::string name);

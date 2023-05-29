@@ -33,10 +33,9 @@ class Table {
     std::string update(std::string column, std::string value,
                        std::vector<Condition> conditions);
     std::string delete_(std::vector<Condition> conditions);
-    std::string createIndex(std::string index_name,
-                            std::vector<std::string> column_name);
+    std::string createIndex(const std::vector<std::string> &column_names);
     std::string dropIndex(std::string index_name);
-    void prettyPrint() const {
+    void prettyPrint(Index idx) const {
         std::cout << "Table name: " << name << std::endl;
         std::cout << "Column names: ";
         for (auto column_name : this->column_names)
@@ -63,11 +62,10 @@ class Table {
         for (auto index : indexes) std::cout << index.first.toString() << " ";
         std::cout << std::endl;
 
-        if (this->primary_key_column != "")
-            indexes.at(Index(this->name, this->primary_key_column))
-                ->prettyPrint();
+        if (indexes.find(idx) == indexes.end())
+            std::cout << "Index not found" << std::endl;
         else
-            indexes.at(Index(this->name, this->column_names[0]))->prettyPrint();
+            indexes.at(idx)->prettyPrint();
     };
     void save(std::filesystem::path dbFolderPath);
     void load(std::filesystem::path dbFolderPath);

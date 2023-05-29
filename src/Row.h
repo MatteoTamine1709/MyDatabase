@@ -96,6 +96,18 @@ struct Row {
         return blob;
     }
 
+    void *getKey(size_t index, Type type) {
+        void *key = malloc(this->sizes[index] + (type == Type::CHAR ||
+                                                 type == Type::VARCHAR ||
+                                                 type == Type::TEXT));
+        size_t offset = 0;
+        for (int i = 0; i < index; ++i) offset += this->sizes[i];
+        memcpy(key, (char *)this->data.get() + offset, this->sizes[index]);
+        if (type == Type::CHAR || type == Type::VARCHAR || type == Type::TEXT)
+            ((char *)key)[this->sizes[index]] = '\0';
+        return key;
+    }
+
     void save(std::ofstream &file) {
         computeTotalSize();
         file.write((char *)&headerSize, sizeof(uint64_t));
@@ -128,7 +140,6 @@ struct Row {
             file.read((char *)&is_set[i], sizeof(char));
         void *b = malloc(totalSize - headerSize);
         file.read((char *)b, totalSize - headerSize);
-        std::cout << "Loaded row: " << *(uint32_t *)b << std::endl;
         data = std::shared_ptr<void>(b, free);
     }
 };

@@ -8,7 +8,8 @@
 #include "Constant.h"
 
 enum Type {
-    INTEGER,
+    INVALID = -1,
+    INTEGER = 0,
     FLOAT,
     DECIMAL,
     CHAR,

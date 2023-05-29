@@ -20,24 +20,20 @@ struct Condition {
 
     std::vector<std::pair<Key, Key>> generateRanges() const {
         if (op == "=") {
-            return {{Key(utils::parseType(value, type), type_max_size[type]),
-                     Key(utils::parseType(value, type), type_max_size[type])}};
+            return {{Key(utils::parseType(value, type), type),
+                     Key(utils::parseType(value, type), type)}};
         }
         if (op == "!=") {
-            return {{Key(nullptr, 0),
-                     Key(utils::parseType(value, type), type_max_size[type])},
-                    {Key(utils::parseType(value, type), type_max_size[type]),
-                     Key(nullptr, 0)}};
+            return {{Key(), Key(utils::parseType(value, type), type)},
+                    {Key(utils::parseType(value, type), type), Key()}};
         }
         if (op == "<=" || op == "<") {
-            return {{Key(nullptr, 0),
-                     Key(utils::parseType(value, type), type_max_size[type])}};
+            return {{Key(), Key(utils::parseType(value, type), type)}};
         }
         if (op == ">=" || op == ">") {
-            return {{Key(utils::parseType(value, type), type_max_size[type]),
-                     Key(nullptr, 0)}};
+            return {{Key(utils::parseType(value, type), type), Key()}};
         }
-        return {{Key(nullptr, 0), Key(nullptr, 0)}};
+        return {{Key(), Key()}};
     }
 
     Type type;

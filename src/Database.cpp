@@ -46,6 +46,13 @@ std::string Database::insert(std::string table_name,
     return tables[table_name]->insert(column_order, values);
 }
 
+std::string Database::createIndex(
+    std::string table_name, const std::vector<std::string> &column_names) {
+    if (tables.find(table_name) == tables.end())
+        return "Error: Table not found";
+    return tables[table_name]->createIndex(column_names);
+}
+
 std::pair<std::string, void *> Database::select(
     std::string table_name, std::vector<std::string> columns,
     std::vector<Condition> conditions) {

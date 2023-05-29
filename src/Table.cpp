@@ -93,14 +93,10 @@ std::string Table::insert(std::vector<std::string> column_order,
         sizes.push_back(utils::getTypeSize(values[i], column_types[i]));
     }
 
-    // std::cout << "Row size: " << row_size << std::endl;
-
     void *row = malloc(row_size);
     uint64_t offset = 0;
 
     for (int i = 0; i < values.size(); ++i) {
-        // std::cout << values[i] << ", " << sizes[i] << ", " << offset
-        //           << std::endl;
         void *value = utils::parseType(values[i], column_types[i]);
         if (value == nullptr) {
             memset((char *)row + offset, 0, sizes[i]);
@@ -125,7 +121,7 @@ std::string Table::insert(std::vector<std::string> column_order,
                 ->search(Key(
                     utils::parseType(values[primary_key_column_index],
                                      column_types[primary_key_column_index]),
-                    type_max_size[column_types[primary_key_column_index]]))
+                    column_types[primary_key_column_index]))
                 .first != nullptr)
             return "Error: Primary key constraint violated";
         free(primary_key);
@@ -136,7 +132,7 @@ std::string Table::insert(std::vector<std::string> column_order,
             void *value = utils::parseType(values[i], column_types[i]);
             if (this->indexes[Index(this->name, this->column_names[i])]
                     ->search(Key(utils::parseType(values[i], column_types[i]),
-                                 type_max_size[column_types[i]]))
+                                 column_types[i]))
                     .first != nullptr) {
                 free(value);
                 return "Error: Unique constraint violated";
@@ -151,10 +147,9 @@ std::string Table::insert(std::vector<std::string> column_order,
             this->column_types[this->getColumnIndex(index.columns_name[0])]);
         std::shared_ptr<Row> r = std::make_shared<Row>(row, sizes, is_set);
         this->rows.push_back(r);
-        btree->insert(
-            Key(key, type_max_size[this->column_types[this->getColumnIndex(
-                         index.columns_name[0])]]),
-            this->rows.size() - 1);
+        btree->insert(Key(key, this->column_types[this->getColumnIndex(
+                                   index.columns_name[0])]),
+                      this->rows.size() - 1);
     }
     return "Row inserted";
 }
@@ -212,14 +207,37 @@ std::pair<std::string, void *> Table::select(
         offset += sizeof(char);
     }
     for (auto &[key, rowIdx] : range) {
-        std::cout << "Key: " << key->toString() << std::endl;
         void *b = this->rows[rowIdx]->blob(requestedColumnIndexes);
         memcpy((char *)rows + offset, b,
                this->rows[rowIdx]->computeTotalSize(requestedColumnIndexes));
         free(b);
         offset += this->rows[rowIdx]->totalSize;
     }
-    return {std::string("Rows selected"), rows};
+    return {std::string("OK"), rows};
+}
+
+std::string Table::createIndex(const std::vector<std::string> &column_names) {
+    for (int i = 0; i < column_names.size(); ++i)
+        if (this->getColumnIndex(column_names[i]) == -1)
+            return "Error: Column not found";
+    if (column_names.size() == 0) return "Error: No column specified";
+    if (column_names.size() > 1) return "Error: Only one column allowed";
+    if (this->indexes.find(Index(this->name, column_names[0])) !=
+        this->indexes.end())
+        return "Error: Index already exists";
+    this->indexes[Index(this->name, column_names[0])] = new BTree();
+    std::cout << "Index type "
+              << this->column_types[this->getColumnIndex(column_names[0])]
+              << std::endl;
+    for (int64_t i = 0; i < this->rows.size(); ++i) {
+        void *key = this->rows[i]->getKey(
+            this->getColumnIndex(column_names[0]),
+            this->column_types[this->getColumnIndex(column_names[0])]);
+        this->indexes[Index(this->name, column_names[0])]->insert(
+            Key(key, this->column_types[this->getColumnIndex(column_names[0])]),
+            i);
+    }
+    return "Index created";
 }
 
 void Table::save(std::filesystem::path dbFolderPath) {
@@ -233,7 +251,6 @@ void Table::save(std::filesystem::path dbFolderPath) {
     offset += this->name.size() + 1;
     // Column names
     size_t column_names_size = this->column_names.size();
-    std::cout << "# Columns: " << column_names_size << std::endl;
     memcpy(tableInfoBlob + offset, &column_names_size, sizeof(size_t));
     offset += sizeof(size_t);
     for (int i = 0; i < this->column_names.size(); ++i) {
@@ -242,7 +259,6 @@ void Table::save(std::filesystem::path dbFolderPath) {
         offset += this->column_names[i].size() + 1;
     }
     // Column types
-    std::cout << "# Column types: " << this->column_types.size() << std::endl;
     for (int i = 0; i < this->column_types.size(); ++i) {
         memcpy(tableInfoBlob + offset, &this->column_types[i], sizeof(char));
         offset += sizeof(char);
@@ -252,22 +268,18 @@ void Table::save(std::filesystem::path dbFolderPath) {
            this->primary_key_column.size() + 1);
     offset += this->primary_key_column.size() + 1;
     // Is unique
-    std::cout << "# Is unique: " << this->is_unique.size() << std::endl;
     for (int i = 0; i < this->is_unique.size(); ++i) {
         bool temp = this->is_unique[i];
         memcpy(tableInfoBlob + offset, &temp, sizeof(bool));
         offset += sizeof(bool);
     }
     // Is not null
-    std::cout << "# Is not null: " << this->is_not_null.size() << std::endl;
     for (int i = 0; i < this->is_not_null.size(); ++i) {
         bool temp = this->is_not_null[i];
         memcpy(tableInfoBlob + offset, &temp, sizeof(bool));
         offset += sizeof(bool);
     }
     // Default value
-    std::cout << "# Default value: " << this->default_values.size()
-              << std::endl;
     for (int i = 0; i < this->default_values.size(); ++i) {
         memcpy(tableInfoBlob + offset, this->default_values[i].c_str(),
                this->default_values[i].size() + 1);
@@ -276,6 +288,14 @@ void Table::save(std::filesystem::path dbFolderPath) {
 
     size_t rows_size = this->rows.size();
     memcpy(tableInfoBlob + offset, &rows_size, sizeof(size_t));
+    offset += sizeof(size_t);
+
+    // Indexes name in tableInfoBlob
+    for (auto &[index, btree] : this->indexes) {
+        memcpy(tableInfoBlob + offset, index.columns_name[0].c_str(),
+               index.columns_name[0].size() + 1);
+        offset += index.columns_name[0].size() + 1;
+    }
 
     std::ofstream tableInfoFile(tableFolderPath + "/tableInfo",
                                 std::ios::binary);
@@ -286,13 +306,13 @@ void Table::save(std::filesystem::path dbFolderPath) {
     // Save rows
     int index = 0;
     for (auto &row : this->rows) {
-        std::cout << "Saving row " << index << std::endl;
         std::ofstream file(tableFolderPath + "/rows/" + std::to_string(index),
                            std::ios::binary);
         row->save(file);
         file.close();
         ++index;
     }
+
     // Save indexes
     for (auto &[index, btree] : this->indexes) {
         std::cout << "Saving index " << index.toString() << std::endl;
@@ -309,18 +329,15 @@ void Table::load(std::filesystem::path dbFolderPath) {
     tableInfoFile.close();
     uint64_t offset = 0;
     // Table name
-    // std::cout << std::string(tableInfoBlob + offset) << std::endl;
     this->name = std::string(tableInfoBlob + offset);
     offset += this->name.size() + 1;
     // Column count
     size_t column_count = 0;
     memcpy(&column_count, tableInfoBlob + offset, sizeof(size_t));
     offset += sizeof(size_t);
-    std::cout << "LOADING " << column_count << " COLUMNS" << std::endl;
     // Column names
     for (int i = 0; i < column_count; ++i) {
         std::string column_name = std::string(tableInfoBlob + offset);
-        // std::cout << column_name << std::endl;
         this->column_names.push_back(column_name);
         offset += column_name.size() + 1;
     }
@@ -329,7 +346,6 @@ void Table::load(std::filesystem::path dbFolderPath) {
     for (int i = 0; i < column_count; ++i) {
         char column_type = 0;
         memcpy(&column_type, tableInfoBlob + offset, sizeof(char));
-        // std::cout << (int)column_type << std::endl;
         this->column_types.push_back((Type)column_type);
         offset += sizeof(char);
     }
@@ -337,24 +353,19 @@ void Table::load(std::filesystem::path dbFolderPath) {
     // Primary key column
     this->primary_key_column = std::string(tableInfoBlob + offset);
     offset += this->primary_key_column.size() + 1;
-    // std::cout << "'" << this->primary_key_column << "'" << std::endl;
 
     // Is unique
-    std::cout << "Is unique" << std::endl;
     for (int i = 0; i < column_count; ++i) {
         bool temp = false;
         memcpy(&temp, tableInfoBlob + offset, sizeof(bool));
-        std::cout << temp << std::endl;
         this->is_unique.push_back(temp);
         offset += sizeof(bool);
     }
 
     // Is not null
-    std::cout << "Is not null" << std::endl;
     for (int i = 0; i < column_count; ++i) {
         bool temp = false;
         memcpy(&temp, tableInfoBlob + offset, sizeof(bool));
-        std::cout << temp << std::endl;
         this->is_not_null.push_back(temp);
         offset += sizeof(bool);
     }
@@ -362,19 +373,26 @@ void Table::load(std::filesystem::path dbFolderPath) {
     // Default value
     for (int i = 0; i < column_count; ++i) {
         std::string default_value = std::string(tableInfoBlob + offset);
-        std::cout << default_value << std::endl;
         this->default_values.push_back(default_value);
         offset += default_value.size() + 1;
     }
 
-    std::cout << "Column count: " << column_count << std::endl;
-    std::cout << "Offset: " << offset << std::endl;
     // Rows size
     size_t rows_size = 0;
     memcpy(&rows_size, tableInfoBlob + offset, sizeof(size_t));
     offset += sizeof(size_t);
-    std::cout << "ROW SIZE: " << rows_size << std::endl;
     this->rows.resize(rows_size);
+
+    std::vector<std::string> indexes_name;
+    for (int i = 0; i < column_count; ++i) {
+        std::string index_name = std::string(tableInfoBlob + offset);
+        if (index_name == "") {
+            offset += index_name.size() + 1;
+            break;
+        }
+        indexes_name.push_back(index_name);
+        offset += index_name.size() + 1;
+    }
 
     // Load rows
     // Loop through rows folder
@@ -392,31 +410,16 @@ void Table::load(std::filesystem::path dbFolderPath) {
         });
     for (auto &p : files_in_directory) {
         std::string row_name = p.filename().string();
-        std::cout << p.string() << std::endl;
-        // int index = std::stoi(row_name);
         std::ifstream file(p.string());
-        int n = 0;
-        // file.read((char *)&n, sizeof(int));
-        // for (int i = 0; i < n; ++i)
         this->rows[idx++] = std::make_shared<Row>(file);
         file.close();
     }
 
-    if (this->primary_key_column != "")
-        this->indexes[Index(this->name, this->primary_key_column)] =
-            BTree::load(dbFolderPath.string(),
-                        Index(this->name, this->primary_key_column).toString(),
-                        this->rows);
-    else
-        this->indexes[Index(this->name, this->column_names[0])] = BTree::load(
+    // Load indexes
+    for (int i = 0; i < indexes_name.size(); ++i) {
+        std::cout << "Loading index " << indexes_name[i] << std::endl;
+        this->indexes[Index(this->name, indexes_name[i])] = BTree::load(
             dbFolderPath.string(),
-            Index(this->name, this->column_names[0]).toString(), this->rows);
-    for (int i = 0; i < column_count; ++i) {
-        if (this->is_unique[i]) {
-            this->indexes[Index(this->name, this->column_names[i])] =
-                BTree::load(dbFolderPath.string(),
-                            Index(this->name, this->column_names[i]).toString(),
-                            this->rows);
-        }
+            Index(this->name, indexes_name[i]).toString(), this->rows);
     }
 }

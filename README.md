@@ -15,8 +15,10 @@ In the standalone application, the tables will be known at runtime and the user 
 
 ## Functionality
 
-- [ ] Save data to disk
-- [ ] Load data from disk
+- [x] Save data to disk
+- [ ] Save in a separate thread
+- [x] Load data from disk
+- [ ] Load data as they are needed
 - [x] Save indexes to disk
 - [x] Load indexes from disk
 - [x] Create table
@@ -33,7 +35,8 @@ In the standalone application, the tables will be known at runtime and the user 
 - [x] Not null
 - [x] Unique
 - [ ] Auto increment
-- [x] Indexes
+- [x] Index
+- [x] Create index
 - [ ] Composite indexes
 - [ ] Transactions
 - [ ] Views
