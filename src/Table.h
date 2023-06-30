@@ -18,7 +18,7 @@
 
 class Table {
    public:
-    Table(std::string filepath) { load(filepath); };
+    Table(std::string filepath) { this->load(filepath); };
     Table(std::string name, std::vector<std::string> columns_name,
           std::vector<Type> columns_type, std::string primary_key_column,
           std::vector<bool> is_unique, std::vector<bool> is_not_null,
@@ -74,7 +74,8 @@ class Table {
     std::string name;
     std::vector<std::string> column_names;
     std::vector<Type> column_types;
-    std::vector<std::shared_ptr<Row>> rows;
+    std::unordered_map<int64_t, std::shared_ptr<Row>> rows;
+    int64_t next_row_idx = 0;
     std::unordered_map<Index, BTree *, Index::hashFn> indexes;
     std::vector<bool> is_unique;
     std::vector<bool> is_not_null;

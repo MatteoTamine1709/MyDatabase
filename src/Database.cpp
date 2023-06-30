@@ -56,6 +56,7 @@ std::string Database::createIndex(
 std::pair<std::string, void *> Database::select(
     std::string table_name, std::vector<std::string> columns,
     std::vector<Condition> conditions) {
+    if (tables.find(table_name) == tables.end()) this->load(table_name);
     if (tables.find(table_name) == tables.end())
         return {"Error: Table not found", {}};
     return tables[table_name]->select(columns, conditions);

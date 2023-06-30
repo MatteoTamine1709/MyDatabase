@@ -141,12 +141,11 @@ std::string Table::insert(std::vector<std::string> column_order,
         }
     }
 
+    this->rows[this->next_row_idx] = std::make_shared<Row>(row, sizes, is_set);
     for (const auto &[index, btree] : this->indexes) {
         void *key = utils::parseType(
             values[this->getColumnIndex(index.columns_name[0])],
             this->column_types[this->getColumnIndex(index.columns_name[0])]);
-        std::shared_ptr<Row> r = std::make_shared<Row>(row, sizes, is_set);
-        this->rows.push_back(r);
         btree->insert(Key(key, this->column_types[this->getColumnIndex(
                                    index.columns_name[0])]),
                       this->rows.size() - 1);
@@ -185,8 +184,10 @@ std::pair<std::string, void *> Table::select(
     for (int i = 0; i < requestedColumns.size(); ++i)
         headerSize += sizeof(char);
     total_size += headerSize;
-    for (auto &row : this->rows)
-        total_size += row->computeTotalSize(requestedColumnIndexes);
+    for (auto &[key, rowIdx] : range) {
+        total_size +=
+            this->rows[rowIdx]->computeTotalSize(requestedColumnIndexes);
+    }
     void *rows = malloc(total_size);
     uint64_t offset = 0;
     size_t rowCount = range.size();
@@ -263,6 +264,9 @@ void Table::save(std::filesystem::path dbFolderPath) {
         memcpy(tableInfoBlob + offset, &this->column_types[i], sizeof(char));
         offset += sizeof(char);
     }
+    // Next row index
+    memcpy(tableInfoBlob + offset, &this->next_row_idx, sizeof(int64_t));
+    offset += sizeof(int64_t);
     // Primary key column
     memcpy(tableInfoBlob + offset, this->primary_key_column.c_str(),
            this->primary_key_column.size() + 1);
@@ -292,9 +296,9 @@ void Table::save(std::filesystem::path dbFolderPath) {
 
     // Indexes name in tableInfoBlob
     for (auto &[index, btree] : this->indexes) {
-        memcpy(tableInfoBlob + offset, index.columns_name[0].c_str(),
-               index.columns_name[0].size() + 1);
-        offset += index.columns_name[0].size() + 1;
+        memcpy(tableInfoBlob + offset, index.toString().c_str(),
+               index.toString().size() + 1);
+        offset += index.toString().size() + 1;
     }
 
     std::ofstream tableInfoFile(tableFolderPath + "/tableInfo",
@@ -304,14 +308,15 @@ void Table::save(std::filesystem::path dbFolderPath) {
 
     std::filesystem::create_directories(tableFolderPath + "/rows");
     // Save rows
-    int index = 0;
-    for (auto &row : this->rows) {
-        std::ofstream file(tableFolderPath + "/rows/" + std::to_string(index),
-                           std::ios::binary);
-        row->save(file);
-        file.close();
-        ++index;
-    }
+    // int index = 0;
+    // for (auto &row : this->rows) {
+    //     std::ofstream file(tableFolderPath + "/rows/" +
+    //     std::to_string(index),
+    //                        std::ios::binary);
+    //     row->save(file);
+    //     file.close();
+    //     ++index;
+    // }
 
     // Save indexes
     for (auto &[index, btree] : this->indexes) {
@@ -350,6 +355,10 @@ void Table::load(std::filesystem::path dbFolderPath) {
         offset += sizeof(char);
     }
 
+    // Next row index
+    memcpy(&this->next_row_idx, tableInfoBlob + offset, sizeof(int64_t));
+    offset += sizeof(int64_t);
+
     // Primary key column
     this->primary_key_column = std::string(tableInfoBlob + offset);
     offset += this->primary_key_column.size() + 1;
@@ -381,11 +390,14 @@ void Table::load(std::filesystem::path dbFolderPath) {
     size_t rows_size = 0;
     memcpy(&rows_size, tableInfoBlob + offset, sizeof(size_t));
     offset += sizeof(size_t);
-    this->rows.resize(rows_size);
+    // this->rows.resize(rows_size);
+
+    std::cout << "Loading indexes " << column_count << std::endl;
 
     std::vector<std::string> indexes_name;
     for (int i = 0; i < column_count; ++i) {
         std::string index_name = std::string(tableInfoBlob + offset);
+        std::cout << "Loading index " << index_name << std::endl;
         if (index_name == "") {
             offset += index_name.size() + 1;
             break;
@@ -396,30 +408,30 @@ void Table::load(std::filesystem::path dbFolderPath) {
 
     // Load rows
     // Loop through rows folder
-    size_t idx = 0;
-    std::vector<std::filesystem::path> files_in_directory;
-    std::copy(
-        std::filesystem::directory_iterator(dbFolderPath.string() + "/rows"),
-        std::filesystem::directory_iterator(),
-        std::back_inserter(files_in_directory));
-    std::sort(
-        files_in_directory.begin(), files_in_directory.end(),
-        [&](const std::filesystem::path &a, const std::filesystem::path &b) {
-            return std::stoul(a.filename().string()) <
-                   std::stoul(b.filename().string());
-        });
-    for (auto &p : files_in_directory) {
-        std::string row_name = p.filename().string();
-        std::ifstream file(p.string());
-        this->rows[idx++] = std::make_shared<Row>(file);
-        file.close();
-    }
+    // size_t idx = 0;
+    // std::vector<std::filesystem::path> files_in_directory;
+    // std::copy(
+    //     std::filesystem::directory_iterator(dbFolderPath.string() + "/rows"),
+    //     std::filesystem::directory_iterator(),
+    //     std::back_inserter(files_in_directory));
+    // std::sort(
+    //     files_in_directory.begin(), files_in_directory.end(),
+    //     [&](const std::filesystem::path &a, const std::filesystem::path &b) {
+    //         return std::stoul(a.filename().string()) <
+    //                std::stoul(b.filename().string());
+    //     });
+    // for (auto &p : files_in_directory) {
+    //     std::string row_name = p.filename().string();
+    //     std::ifstream file(p.string());
+    //     this->rows[idx++] = std::make_shared<Row>(file);
+    //     file.close();
+    // }
 
     // Load indexes
-    for (int i = 0; i < indexes_name.size(); ++i) {
-        std::cout << "Loading index " << indexes_name[i] << std::endl;
-        this->indexes[Index(this->name, indexes_name[i])] = BTree::load(
-            dbFolderPath.string(),
-            Index(this->name, indexes_name[i]).toString(), this->rows);
-    }
+    // for (int i = 0; i < indexes_name.size(); ++i) {
+    //     std::cout << "Loading index " << indexes_name[i] << std::endl;
+    //     this->indexes[Index(this->name, indexes_name[i])] = BTree::load(
+    //         dbFolderPath.string(),
+    //         Index(this->name, indexes_name[i]).toString(), this->rows);
+    // }
 }

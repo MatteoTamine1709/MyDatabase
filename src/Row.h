@@ -11,7 +11,6 @@
 
 struct Row {
     std::shared_ptr<void> data = nullptr;
-    std::string filepath;
     std::vector<char> is_set;
     std::vector<uint64_t> sizes;
     uint64_t headerSize = 0;

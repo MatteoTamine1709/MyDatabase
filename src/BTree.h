@@ -47,7 +47,7 @@ class TreeNode {
 
     void save(std::string indexPathFolder, int &index);
     static TreeNode *load(std::string filepath, std::string rowFolderpath,
-                          int &index, std::vector<std::shared_ptr<Row>> &rows);
+                          int &index);
 };
 
 class BTree {
@@ -111,8 +111,7 @@ class BTree {
     void remove(const Key &k);
 
     void save(std::string indexPathFolder);
-    static BTree *load(std::string filepath, std::string indexName,
-                       std::vector<std::shared_ptr<Row>> &data);
+    static BTree *load(std::string filepath, std::string indexName);
 };
 
 #endif

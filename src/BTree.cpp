@@ -92,7 +92,7 @@ void TreeNode::save(std::string indexPathFolder, int &index) {
 }
 
 TreeNode *TreeNode::load(std::string indexPathFolder, std::string rowFolderpath,
-                         int &index, std::vector<std::shared_ptr<Row>> &rows) {
+                         int &index) {
     std::ifstream file(indexPathFolder + "/" + std::to_string(index),
                        std::ios::binary);
     bool leaf;
@@ -106,7 +106,7 @@ TreeNode *TreeNode::load(std::string indexPathFolder, std::string rowFolderpath,
     file.close();
     if (!leaf)
         for (int i = 0; i <= node->n; ++i)
-            node->C[i] = load(indexPathFolder, rowFolderpath, ++index, rows);
+            node->C[i] = load(indexPathFolder, rowFolderpath, ++index);
 
     return node;
 }
@@ -382,17 +382,16 @@ void BTree::save(std::string indexPathFolder) {
     // Save each TreeNode in a file of MAX_PAGE_SIZE
     std::filesystem::create_directory(indexPathFolder);
     int index = 0;
-    root->save(indexPathFolder, index);
+    if (root != nullptr) root->save(indexPathFolder, index);
 }
 
-BTree *BTree::load(std::string tablePath, std::string indexName,
-                   std::vector<std::shared_ptr<Row>> &rows) {
+BTree *BTree::load(std::string tablePath, std::string indexName) {
     std::cout << "Loading BTree from " << (tablePath + "/" + indexName)
               << std::endl;
     std::string rowFolderpath = tablePath + "/rows";
     BTree *btree = new BTree();
     int index = 0;
     btree->root =
-        TreeNode::load(tablePath + "/" + indexName, rowFolderpath, index, rows);
+        TreeNode::load(tablePath + "/" + indexName, rowFolderpath, index);
     return btree;
 }
